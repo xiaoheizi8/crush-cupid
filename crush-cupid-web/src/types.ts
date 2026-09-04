@@ -172,3 +172,59 @@ export interface ChatHistoryVO {
   /** 关联的图片 URL（来自 chat_media 表）；无图片为 null/undefined */
   mediaUrl?: string
 }
+
+/** 用户信息 */
+export interface UserVO {
+  id: number
+  email: string
+  username: string
+  avatarUrl: string
+  emailVerified: boolean
+  createdAt: string
+}
+
+/** 登录/注册成功响应（含 Sa-Token 会话） */
+export interface LoginVO {
+  tokenName: string
+  tokenValue: string
+  expiresIn: number
+  user: UserVO
+}
+
+/** 登录参数 */
+export interface LoginDTO {
+  email: string
+  password: string
+}
+
+/** 注册参数 */
+export interface RegisterDTO {
+  email: string
+  password: string
+  username?: string
+}
+
+/** 更新资料参数 */
+export interface UpdateProfileDTO {
+  username?: string
+  avatarUrl?: string
+}
+
+/** 我的配额与用量 */
+export interface MyQuotaVO {
+  plan: string
+  crushLimit: number
+  dailyChatLimit: number
+  todayMessageCount: number
+  crushCount: number
+}
+
+/** 版本快照 */
+export interface VersionVO {
+  id: number
+  crushId: number
+  version: number
+  reason?: string
+  snapshot?: string
+  createdAt: string
+}

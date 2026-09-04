@@ -99,6 +99,8 @@ public class CupidAgent {
         String provider = dto.getProvider();
         String crushSlug = dto.getCrushSlug();
         boolean advisorMode = forcedAdvisorMode || Boolean.TRUE.equals(dto.getAdvisorMode());
+        // 同步入口（请求线程）捕获当前登录用户，作为会话记忆的归属维度（多用户共享 crush 时隔离历史）
+        long ownerId = cn.yzfy.crushcupidserver.security.SecurityUtils.currentUserId();
 
         // 若请求带图片且当前供应商非视觉（vision），自动切到视觉模型（让模型真正"看懂"聊天图片）
         String effectiveProvider = chatClientProvider.resolveProvider(provider, hasImageMedia(dto));
@@ -125,7 +127,7 @@ public class CupidAgent {
                 .doOnSubscribe(s -> log.info("[chat] 预处理开始 crush={} advisorMode={}", crushSlug, advisorMode))
                 .doOnNext(ctx -> log.info("[chat] 预处理完成 耗时={}ms crush={}",
                         System.currentTimeMillis() - preStart, crushSlug))
-                .flatMapMany(ctx -> streamMulti(ctx.chatClient(), ctx.userMessage(), ctx.crush(), ctx.skillPrompt(), ctx.advisorMode()));
+                .flatMapMany(ctx -> streamMulti(ctx.chatClient(), ctx.userMessage(), ctx.crush(), ctx.skillPrompt(), ctx.advisorMode(), ownerId));
     }
 
     /**
@@ -141,6 +143,8 @@ public class CupidAgent {
         String provider = dto.getProvider();
         String crushSlug = dto.getCrushSlug();
         String contextHint = dto.getContextHint();
+        // 同步入口捕获当前登录用户（会话记忆归属维度）
+        long ownerId = cn.yzfy.crushcupidserver.security.SecurityUtils.currentUserId();
 
         return Mono.fromCallable(() -> {
                     Crush crush = crushService.getBySlug(crushSlug);
@@ -152,7 +156,7 @@ public class CupidAgent {
                     return new ChatContext(crush, chatClient, userMessage, null, false);
                 })
                 .subscribeOn(aiScheduler)
-                .flatMapMany(ctx -> streamMulti(ctx.chatClient(), ctx.userMessage(), ctx.crush(), ctx.skillPrompt(), ctx.advisorMode()));
+                .flatMapMany(ctx -> streamMulti(ctx.chatClient(), ctx.userMessage(), ctx.crush(), ctx.skillPrompt(), ctx.advisorMode(), ownerId));
     }
 
     /**
@@ -161,9 +165,10 @@ public class CupidAgent {
      * 切分阶段用 {@code publishOn(aiScheduler)} 让下游 chunk 投递到虚拟线程，
      * 避免 emitter.send 的同步 socket 写阻塞 LLM 流式响应线程。
      */
-    private Flux<MultiChunkVO> streamMulti(ChatClient chatClient, UserMessage userMessage, Crush crush, String skillPrompt, boolean advisorMode) {
-        // 军师对话使用独立记忆命名空间，避免与「模拟 crush」对话历史互相污染
-        String conversationId = (advisorMode ? "advisor:crush:" : "crush:") + crush.getId();
+    private Flux<MultiChunkVO> streamMulti(ChatClient chatClient, UserMessage userMessage, Crush crush, String skillPrompt, boolean advisorMode, long ownerId) {
+        // 用户维度会话记忆命名空间：u{ownerId}:crush:{crushId}（多用户共享同一 crush 时历史互不干扰）。
+        // 军师对话使用独立命名空间与内存记忆，避免与「模拟 crush」对话历史互相污染。
+        String conversationId = (advisorMode ? "u" + ownerId + ":advisor:" : "u" + ownerId + ":crush:") + crush.getId();
         String persona;
         if (advisorMode) {
             // 军师模式：用军师人设替代 crush 人格，注入 skill prompt 作为任务；记忆保留作背景上下文
@@ -271,7 +276,9 @@ public class CupidAgent {
      * @return LLM 生成的原始回复文本（含 {@link MessageSeparator#SEPARATOR} 分隔的多条短消息）
      */
     public String proactiveSilent(Crush crush, String contextHint) {
-        String conversationId = "crush:" + crush.getId();
+        // 主动消息归属 crush 的所有者（私有 crush→其 owner；共享桶→0），写入 owner 的会话记忆空间
+        long ownerId = crush.getUserId() == null ? 0L : crush.getUserId();
+        String conversationId = "u" + ownerId + ":crush:" + crush.getId();
         UserMessage userMessage = new UserMessage(buildProactivePrompt(crush, contextHint, true));
         ChatClient chatClient = chatClientProvider.getDefault();
         return callWithTimeout(() ->

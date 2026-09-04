@@ -23,6 +23,9 @@ public class AiProvider implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
+    /** 归属：NULL=系统共享(管理员维护)；非空=用户私有 */
+    private Long userId;
+
     /** 显示名，如「自定义 OpenAI」 */
     private String name;
 
@@ -32,8 +35,23 @@ public class AiProvider implements Serializable {
     /** OpenAI 兼容 base-url */
     private String baseUrl;
 
-    /** API Key（允许空，走环境密钥） */
+    /** API Key（系统共享明文走此列；用户私有置空，改存 apiKeyEnc） */
     private String apiKey;
+
+    /** 用户私有 key 的 AES-GCM 密文 */
+    private byte[] apiKeyEnc;
+
+    /** 用户私有 key 加密所用 12B nonce */
+    private byte[] apiKeyNonce;
+
+    /** 脱敏掩码（如 sk****abcd），展示用，密文不下发 */
+    private String apiKeyMask;
+
+    /** 状态：1启用 0禁用 */
+    private Integer status;
+
+    /** 最近一次用于聊天的时间 */
+    private Date lastUsedAt;
 
     /** 模型名 */
     private String model;

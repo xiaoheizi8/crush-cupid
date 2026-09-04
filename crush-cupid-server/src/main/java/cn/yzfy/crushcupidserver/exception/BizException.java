@@ -26,4 +26,19 @@ public class BizException extends RuntimeException {
     public static BizException badRequest(String message) {
         return new BizException(400, message);
     }
+
+    /** 未登录 / token 失效 */
+    public static BizException unauthorized(String message) {
+        return new BizException(401, message);
+    }
+
+    /** 无权限 / 非本人资源 */
+    public static BizException forbidden(String message) {
+        return new BizException(403, message);
+    }
+
+    /** 认证模块业务错误（邮箱格式 1001、已注册 1002、验证码 1003、密码强度 1004、账号锁定 1005、禁用 1006） */
+    public static BizException authError(int subCode, String message) {
+        return new BizException(1000 + subCode, message);
+    }
 }

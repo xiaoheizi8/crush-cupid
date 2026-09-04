@@ -14,4 +14,14 @@ public interface CrushService extends IService<Crush> {
      * 根据 slug 查询暗恋对象
      */
     Crush getBySlug(String slug);
+
+    /**
+     * 查询某个用户可见的 crush 列表（本人私有 + 系统共享演示桶 0）。
+     */
+    java.util.List<Crush> listOwnedBy(long userId);
+
+    /**
+     * 某个用户私有 crush 的数量（配额校验用，不含系统共享桶）。
+     */
+    long countOwnedBy(long userId);
 }

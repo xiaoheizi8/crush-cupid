@@ -92,8 +92,9 @@ public class ChatModelRegistry {
             });
         }
 
-        // 2. 自定义供应商（DB，动态）：同一 key 覆盖系统供应商。仅用于文本对话（vision/audio 固定 false）
-        List<AiProvider> dbProviders = aiProviderService.list();
+        // 2. 系统共享自定义供应商（DB，动态，user_id IS NULL）：同一 key 覆盖系统 YAML 供应商。
+        //    仅用于文本对话（vision/audio 固定 false）。用户私有供应商不在此全局注册（见 UserProviderResolver）。
+        List<AiProvider> dbProviders = aiProviderService.listSystem();
         boolean hasDbDefault = false;
         for (AiProvider p : dbProviders) {
             LlmProperties.ProviderConfig cfg = toProviderConfig(p);

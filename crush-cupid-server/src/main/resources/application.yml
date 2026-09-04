@@ -1,3 +1,21 @@
 spring:
   profiles:
-    active: dev
+    active: prod
+  # ===== Redis：验证码缓存/频控、登录失败锁定、通用限流、Sa-Token 会话 =====
+  # 由 crush.redis.enabled 总开关控制；关闭时所有 Redis 能力回退到原 PostgreSQL/内存实现。
+#  data:
+#    redis:
+#      host: ${REDIS_HOST:localhost}
+#      port: ${REDIS_PORT:6379}
+#      password: ${REDIS_PASSWORD:}
+#      timeout: 3s
+#      lettuce:
+#        pool:
+#          enabled: true
+#          max-active: 16
+#          max-idle: 8
+#          min-idle: 0
+#  # 关闭 Sa-Token 自带 Redis 自动装配，改由 RedisConfig 在 crush.redis.enabled=true 时按需装配
+#  autoconfigure:
+#    exclude:
+#      - cn.dev33.satoken.dao.SaTokenDaoRedisJackson

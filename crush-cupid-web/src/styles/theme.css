@@ -12,6 +12,7 @@
   --cupid-primary-soft: #ff8aa0;
   --cupid-gradient: linear-gradient(135deg, #ff6a8a 0%, #ff8e53 100%);
   --cupid-gradient-soft: linear-gradient(135deg, #fff1f4 0%, #fff6f0 100%);
+  --cupid-gradient-dark: linear-gradient(135deg, #2a1f2e 0%, #3a2530 100%);
 
   /* 中性色 */
   --cupid-text: #2f2f3e;
@@ -20,54 +21,193 @@
   --cupid-border: #f0e3e7;
   --cupid-bg-page: #f7f5f9;
   --cupid-bg-card: #ffffff;
+  --cupid-bg-hover: rgba(255, 90, 122, 0.06);
 
   /* 圆角 */
   --cupid-radius-sm: 8px;
   --cupid-radius: 12px;
   --cupid-radius-lg: 16px;
+  --cupid-radius-xl: 20px;
 
   /* 阴影 */
   --cupid-shadow-sm: 0 2px 8px rgba(255, 90, 122, 0.06);
   --cupid-shadow: 0 6px 24px rgba(255, 90, 122, 0.10);
   --cupid-shadow-lg: 0 12px 40px rgba(255, 90, 122, 0.14);
+  --cupid-shadow-xl: 0 20px 60px rgba(255, 90, 122, 0.18);
+
+  /* 过渡 */
+  --cupid-transition: 0.25s ease;
+  --cupid-transition-slow: 0.4s ease;
 }
 
-/* 全局背景 */
+/* 全局基础 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   margin: 0;
   background: var(--cupid-bg-page);
   color: var(--cupid-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
 }
 
-/* 覆盖 Ant Design 主色，使 ant-btn-primary 等使用 Cupid 主题色 */
+/* 排版层级 */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--cupid-text);
+  line-height: 1.3;
+}
+
+h1 { font-size: 28px; }
+h2 { font-size: 22px; }
+h3 { font-size: 18px; }
+h4 { font-size: 16px; }
+h5 { font-size: 14px; }
+h6 { font-size: 13px; }
+
+p {
+  margin: 0 0 12px;
+  color: var(--cupid-text-secondary);
+}
+
+a {
+  color: var(--cupid-primary);
+  text-decoration: none;
+  transition: color var(--cupid-transition);
+}
+
+a:hover {
+  color: #ff7a98;
+}
+
+/* 选中文字 */
+::selection {
+  background: rgba(255, 90, 122, 0.15);
+  color: var(--cupid-text);
+}
+
+/* ========== Ant Design 组件覆盖 ========== */
+
+/* 主按钮渐变 */
 .ant-btn-primary {
   background: var(--cupid-gradient);
   border: none;
   box-shadow: 0 4px 12px rgba(255, 90, 122, 0.25);
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 .ant-btn-primary:hover,
 .ant-btn-primary:focus {
   background: linear-gradient(135deg, #ff7a98 0%, #ffa066 100%) !important;
   border: none !important;
+  box-shadow: 0 6px 16px rgba(255, 90, 122, 0.35) !important;
+  transform: translateY(-1px);
 }
 
-/* 卡片统一圆角与阴影 */
+.ant-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 90, 122, 0.25) !important;
+}
+
+/* 默认按钮 */
+.ant-btn-default {
+  border-color: var(--cupid-border);
+  color: var(--cupid-text-secondary);
+  border-radius: var(--cupid-radius-sm);
+}
+
+.ant-btn-default:hover {
+  border-color: var(--cupid-primary);
+  color: var(--cupid-primary);
+}
+
+/* 幽灵按钮 */
+.ant-btn-link {
+  color: var(--cupid-primary);
+}
+
+/* 卡片 */
 .ant-card {
   border-radius: var(--cupid-radius) !important;
   border: 1px solid var(--cupid-border) !important;
   box-shadow: var(--cupid-shadow-sm);
   overflow: hidden;
+  transition: box-shadow var(--cupid-transition);
+}
+
+.ant-card:hover {
+  box-shadow: var(--cupid-shadow);
 }
 
 .ant-card-head {
   border-bottom: 1px solid var(--cupid-border) !important;
   min-height: 44px !important;
+  padding: 0 20px !important;
+  font-weight: 600;
 }
 
-/* 表单输入聚焦时使用主题色边框 */
+.ant-card-body {
+  padding: 20px !important;
+}
+
+/* 表格 */
+.ant-table {
+  border-radius: var(--cupid-radius);
+  overflow: hidden;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--cupid-gradient-soft) !important;
+  border-bottom: 1px solid var(--cupid-border) !important;
+  font-weight: 600;
+  color: var(--cupid-text);
+  font-size: 13px;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--cupid-border) !important;
+  font-size: 13px;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--cupid-bg-hover) !important;
+}
+
+/* 分页 */
+.ant-pagination-item-active {
+  border-color: var(--cupid-primary) !important;
+}
+
+.ant-pagination-item-active a {
+  color: var(--cupid-primary) !important;
+}
+
+.ant-pagination-item:hover a {
+  border-color: var(--cupid-primary) !important;
+  color: var(--cupid-primary) !important;
+}
+
+/* 表单 */
+.ant-form-item-label > label {
+  font-weight: 500;
+  color: var(--cupid-text);
+}
+
 .ant-input:focus,
 .ant-input:focus-within,
 .ant-select-focused .ant-select-selector,
@@ -77,7 +217,229 @@ body {
   box-shadow: 0 0 0 2px rgba(255, 90, 122, 0.15) !important;
 }
 
-/* 全局滚动条美化 */
+.ant-input:hover,
+.ant-select:hover .ant-select-selector {
+  border-color: rgba(255, 90, 122, 0.4) !important;
+}
+
+/* 输入框包裹 */
+.ant-input-group-addon {
+  background: var(--cupid-bg-page) !important;
+  color: var(--cupid-text-secondary);
+  border-radius: var(--cupid-radius-sm) 0 0 var(--cupid-radius-sm) !important;
+  border: 1px solid var(--cupid-border) !important;
+}
+
+/* 标签 */
+.ant-tag {
+  border-radius: 6px !important;
+  font-size: 12px;
+  padding: 2px 8px !important;
+}
+
+.ant-tag-hide-color {
+  background: var(--cupid-bg-page) !important;
+  border-color: var(--cupid-border) !important;
+  color: var(--cupid-text-secondary) !important;
+}
+
+/* 徽章 */
+.ant-badge-count {
+  box-shadow: 0 0 0 1px #fff, 0 0 0 2px var(--cupid-primary) !important;
+}
+
+/* 提醒 */
+.ant-alert {
+  border-radius: var(--cupid-radius) !important;
+  border: 1px solid var(--cupid-border) !important;
+}
+
+/* 弹窗 */
+.ant-modal-content {
+  border-radius: var(--cupid-radius-lg) !important;
+  overflow: hidden;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid var(--cupid-border);
+  padding: 20px 24px 0;
+}
+
+.ant-modal-body {
+  padding: 20px 24px;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid var(--cupid-border);
+  padding: 16px 24px;
+}
+
+/* 弹窗确认 */
+.ant-popconfirm-message {
+  padding: 8px 0;
+}
+
+/* 下拉菜单 */
+.ant-dropdown-menu {
+  border-radius: var(--cupid-radius) !important;
+  padding: 6px !important;
+  box-shadow: var(--cupid-shadow-lg) !important;
+  border: 1px solid var(--cupid-border) !important;
+}
+
+.ant-dropdown-menu-item {
+  border-radius: var(--cupid-radius-sm) !important;
+  margin: 2px 0;
+}
+
+.ant-dropdown-menu-item:hover {
+  background: var(--cupid-bg-hover) !important;
+  color: var(--cupid-primary) !important;
+}
+
+/* 骨架屏 */
+.ant-skeleton {
+  border-radius: var(--cupid-radius-sm);
+}
+
+/* 空状态 */
+.ant-empty-description {
+  color: var(--cupid-text-muted);
+}
+
+/* Tabs */
+.ant-tabs-tab {
+  font-weight: 500;
+  color: var(--cupid-text-secondary);
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--cupid-primary);
+  font-weight: 600;
+}
+
+.ant-tabs-ink-bar {
+  background: var(--cupid-gradient) !important;
+  height: 3px !important;
+  border-radius: 3px 3px 0 0;
+}
+
+/* 折叠面板 */
+.ant-collapse {
+  border-radius: var(--cupid-radius) !important;
+  border: 1px solid var(--cupid-border) !important;
+  overflow: hidden;
+}
+
+.ant-collapse-header {
+  background: var(--cupid-bg-page) !important;
+  font-weight: 600;
+  color: var(--cupid-text);
+}
+
+.ant-collapse-content-box {
+  padding: 16px 20px;
+}
+
+/* 进度条 */
+.ant-progress-bg {
+  background: var(--cupid-gradient) !important;
+}
+
+/* 滑块 */
+.ant-slider-track {
+  background: var(--cupid-gradient) !important;
+}
+
+.ant-slider-handle {
+  border-color: var(--cupid-primary) !important;
+}
+
+.ant-slider-handle:focus {
+  box-shadow: 0 0 0 4px rgba(255, 90, 122, 0.15) !important;
+}
+
+/* 选择器 */
+.ant-select-selector {
+  border-radius: var(--cupid-radius-sm) !important;
+  border: 1px solid var(--cupid-border) !important;
+}
+
+/* 日期选择器 */
+.ant-picker {
+  border-radius: var(--cupid-radius-sm) !important;
+}
+
+/* 开关 */
+.ant-switch-checked {
+  background: var(--cupid-gradient) !important;
+}
+
+.ant-switch-checked::before {
+  left: 20px !important;
+}
+
+/* 搜索框 */
+.ant-input-search .ant-input-group .ant-input-group-addon {
+  background: var(--cupid-gradient) !important;
+  border-color: var(--cupid-gradient) !important;
+}
+
+.ant-input-search .ant-input-group .ant-input-group-addon .anticon {
+  color: #fff;
+}
+
+/* 列表 */
+.ant-list-item {
+  border-bottom: 1px solid var(--cupid-border) !important;
+  padding: 12px 0;
+}
+
+.ant-list-item:last-child {
+  border-bottom: none !important;
+}
+
+/* 树形 */
+.ant-tree-title {
+  color: var(--cupid-text);
+}
+
+.ant-tree-treenode:hover > div > .ant-tree-title {
+  color: var(--cupid-primary);
+}
+
+.ant-tree-treenode-selected > div > .ant-tree-title {
+  color: var(--cupid-primary);
+  background: rgba(255, 90, 122, 0.06);
+}
+
+/* 导航 */
+.ant-menu-item-selected {
+  font-weight: 600;
+}
+
+/* 消息提示 */
+.ant-message-custom-content {
+  border-radius: var(--cupid-radius-sm);
+  box-shadow: var(--cupid-shadow);
+}
+
+/* 通知 */
+.ant-notification-notice {
+  border-radius: var(--cupid-radius) !important;
+  box-shadow: var(--cupid-shadow-lg) !important;
+}
+
+/* 轮播 */
+.ant-carousel .slick-dots li button {
+  background: var(--cupid-text-muted) !important;
+}
+
+.ant-carousel .slick-dots li.slick-active button {
+  background: var(--cupid-primary) !important;
+}
+
+/* ========== 全局滚动条美化 ========== */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -96,7 +458,13 @@ body {
   background: rgba(255, 90, 122, 0.45);
 }
 
-/* 页面淡入动画 */
+/* Firefox 滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 90, 122, 0.25) transparent;
+}
+
+/* ========== 页面淡入动画 ========== */
 @keyframes cupid-fade-in {
   from {
     opacity: 0;
@@ -110,4 +478,92 @@ body {
 
 .cupid-fade-in {
   animation: cupid-fade-in 0.3s ease-out;
+}
+
+/* ========== 卡片入场 ========== */
+@keyframes cupid-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cupid-card-enter {
+  animation: cupid-card-enter 0.4s ease-out;
+}
+
+/* ========== 淡入上移 ========== */
+@keyframes cupid-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cupid-slide-up {
+  animation: cupid-slide-up 0.35s ease-out;
+}
+
+/* ========== 脉冲动画 ========== */
+@keyframes cupid-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.cupid-pulse {
+  animation: cupid-pulse 2s ease-in-out infinite;
+}
+
+/* ========== 呼吸光晕 ========== */
+@keyframes cupid-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 90, 122, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 90, 122, 0.3);
+  }
+}
+
+.cupid-glow {
+  animation: cupid-glow 3s ease-in-out infinite;
+}
+
+/* ========== 无障碍 ========== */
+*:focus-visible {
+  outline: 2px solid var(--cupid-primary);
+  outline-offset: 2px;
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========== 响应式辅助 ========== */
+@media (max-width: 768px) {
+  .ant-card {
+    border-radius: var(--cupid-radius-sm) !important;
+  }
+
+  .ant-card-body {
+    padding: 16px !important;
+  }
 }

@@ -3,9 +3,13 @@ package cn.yzfy.crushcupidserver.controller;
 import cn.yzfy.crushcupidserver.agent.CupidAgent;
 import cn.yzfy.crushcupidserver.config.ThreadPoolsConfig;
 import cn.yzfy.crushcupidserver.exception.BizException;
+import cn.yzfy.crushcupidserver.logic.AuditLogic;
+import cn.yzfy.crushcupidserver.logic.QuotaLogic;
 import cn.yzfy.crushcupidserver.model.dto.ChatRequestDTO;
 import cn.yzfy.crushcupidserver.model.dto.ProactiveRequestDTO;
 import cn.yzfy.crushcupidserver.model.vo.MultiChunkVO;
+import cn.yzfy.crushcupidserver.security.OwnershipGuard;
+import cn.yzfy.crushcupidserver.security.SecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -52,16 +56,25 @@ public class ChatController {
     private final ObjectMapper objectMapper;
     private final ExecutorService sseExecutor;
     private final Semaphore sseLimiter;
+    private final OwnershipGuard ownershipGuard;
+    private final QuotaLogic quotaLogic;
+    private final AuditLogic auditLogic;
     private final AtomicInteger activeStreams = new AtomicInteger(0);
 
     public ChatController(CupidAgent cupidAgent,
                           ObjectMapper objectMapper,
                           @Qualifier("sseExecutor") ExecutorService sseExecutor,
-                          @Qualifier("sseLimiter") Semaphore sseLimiter) {
+                          @Qualifier("sseLimiter") Semaphore sseLimiter,
+                          OwnershipGuard ownershipGuard,
+                          QuotaLogic quotaLogic,
+                          AuditLogic auditLogic) {
         this.cupidAgent = cupidAgent;
         this.objectMapper = objectMapper;
         this.sseExecutor = sseExecutor;
         this.sseLimiter = sseLimiter;
+        this.ownershipGuard = ownershipGuard;
+        this.quotaLogic = quotaLogic;
+        this.auditLogic = auditLogic;
     }
 
     @PreDestroy
@@ -74,7 +87,10 @@ public class ChatController {
      */
     @PostMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter chat(@RequestBody ChatRequestDTO dto) {
-        return stream(cupidAgent.chat(dto), "/api/chat " + safeSlug(dto.getCrushSlug()));
+        ownershipGuard.requireWriteBySlug(dto.getCrushSlug());
+        long uid = SecurityUtils.currentUserId();
+        quotaLogic.checkDailyChatLimit(uid);
+        return stream(afterDone(cupidAgent.chat(dto), uid, "chat", "CHAT"), "/api/chat " + safeSlug(dto.getCrushSlug()));
     }
 
     /**
@@ -83,7 +99,10 @@ public class ChatController {
      */
     @PostMapping(value = "/advisor", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter advisor(@RequestBody ChatRequestDTO dto) {
-        return stream(cupidAgent.advisorChat(dto), "/api/chat/advisor " + safeSlug(dto.getCrushSlug()));
+        ownershipGuard.requireWriteBySlug(dto.getCrushSlug());
+        long uid = SecurityUtils.currentUserId();
+        quotaLogic.checkDailyChatLimit(uid);
+        return stream(afterDone(cupidAgent.advisorChat(dto), uid, "chat", "ADVISOR"), "/api/chat/advisor " + safeSlug(dto.getCrushSlug()));
     }
 
     /**
@@ -91,7 +110,20 @@ public class ChatController {
      */
     @PostMapping(value = "/proactive", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter proactive(@RequestBody ProactiveRequestDTO dto) {
-        return stream(cupidAgent.proactive(dto), "/api/chat/proactive " + safeSlug(dto.getCrushSlug()));
+        ownershipGuard.requireWriteBySlug(dto.getCrushSlug());
+        long uid = SecurityUtils.currentUserId();
+        quotaLogic.checkDailyChatLimit(uid);
+        return stream(afterDone(cupidAgent.proactive(dto), uid, "chat", "PROACTIVE"), "/api/chat/proactive " + safeSlug(dto.getCrushSlug()));
+    }
+
+    /**
+     * 在流结束时记录用量与审计（不阻塞、失败静默）。
+     */
+    private Flux<MultiChunkVO> afterDone(Flux<MultiChunkVO> flux, long uid, String module, String action) {
+        return flux.doFinally(signal -> {
+            quotaLogic.consumeMessages(uid, 1, 1);
+            auditLogic.success(module, action, "Chat", null, null, 0);
+        });
     }
 
     /**

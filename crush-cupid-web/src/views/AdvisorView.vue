@@ -387,30 +387,34 @@ onMounted(() => {
   background: var(--cupid-bg-card);
   border: 1px solid var(--cupid-border);
   border-radius: var(--cupid-radius);
-  padding: 18px;
+  padding: 20px;
   box-shadow: var(--cupid-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .side-card__title {
   font-size: 14px;
   font-weight: 600;
   color: var(--cupid-text);
-  margin-bottom: 12px;
 }
 
 .side-card__btn {
-  margin-top: 12px;
+  margin-top: auto;
   border-radius: var(--cupid-radius-sm) !important;
+  height: 40px !important;
 }
 
 .side-card__hint {
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 4px;
+  padding: 12px 14px;
   background: var(--cupid-gradient-soft);
   border-radius: var(--cupid-radius-sm);
   color: var(--cupid-text-secondary);
   font-size: 12px;
   line-height: 1.6;
+  border-left: 3px solid rgba(255, 90, 122, 0.3);
 }
 
 .chat-card {
@@ -425,7 +429,7 @@ onMounted(() => {
 }
 
 .chat-card__head {
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--cupid-border);
   background: var(--cupid-gradient-soft);
 }

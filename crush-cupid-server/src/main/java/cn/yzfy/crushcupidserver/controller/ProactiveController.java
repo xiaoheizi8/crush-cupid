@@ -1,6 +1,7 @@
 package cn.yzfy.crushcupidserver.controller;
 
 import cn.yzfy.crushcupidserver.agent.proactive.ProactivePushService;
+import cn.yzfy.crushcupidserver.security.OwnershipGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
@@ -27,6 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class ProactiveController {
 
     private final ProactivePushService pushService;
+    private final OwnershipGuard ownershipGuard;
 
     /**
      * 为指定 crush 建立常驻 SSE 监听连接。
@@ -35,6 +37,7 @@ public class ProactiveController {
      */
     @GetMapping(value = "/listen", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter listen(@RequestParam String crushSlug) {
+        ownershipGuard.requireReadBySlug(crushSlug);
         SseEmitter emitter = pushService.register(crushSlug);
         log.info("已注册主动消息监听 crush={}", crushSlug);
         return emitter;

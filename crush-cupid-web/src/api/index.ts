@@ -9,11 +9,18 @@ import type {
   Crush,
   CrushCreatePayload,
   CrushReport,
+  LoginDTO,
+  LoginVO,
   MultiChunk,
+  RegisterDTO,
   Result,
   SkillCatalog,
   Source,
+  UpdateProfileDTO,
+  UserVO,
   Version,
+  VersionVO,
+  MyQuotaVO,
 } from '@/types'
 
 async function unwrap<T>(p: Promise<{ data: Result<T> }>): Promise<T> {
@@ -122,7 +129,7 @@ export async function downloadReportLive(crushSlug: string, md?: string): Promis
     params: { crushSlug, md: md || undefined },
     responseType: 'blob',
   })
-  const ct = resp.headers['content-type'] || ''
+  const ct = (resp.headers['content-type'] as string) || ''
   if (ct.includes('application/json')) {
     const text = await (resp.data as Blob).text()
     throw new Error(text || '下载失败')
@@ -136,7 +143,7 @@ export async function downloadReportLive(crushSlug: string, md?: string): Promis
 /** 下载一条已保存的报告 .docx（读库，不重复调用 LLM） */
 export async function downloadSavedReport(id: number, crushName?: string): Promise<void> {
   const resp = await http.get(`/skill/report/${id}/download`, { responseType: 'blob' })
-  const ct = resp.headers['content-type'] || ''
+  const ct = (resp.headers['content-type'] as string) || ''
   if (ct.includes('application/json')) {
     const text = await (resp.data as Blob).text()
     throw new Error(text || '下载失败')
@@ -215,7 +222,6 @@ export async function proactiveChat(
  */
 export async function synthesizeVoice(text: string, voice?: string): Promise<Blob> {
   const base64 = await unwrap<string>(http.post('/chat/voice', { text, voice }))
-  // base64 -> bytes -> Blob
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
   return new Blob([bytes], { type: 'audio/mpeg' })
 }
@@ -235,11 +241,12 @@ export async function getChatHistory(crushSlug: string): Promise<ChatHistoryVO[]
  * @returns 关闭函数（切换 crush / 页面卸载时调用）
  */
 export function listenProactive(crushSlug: string, onMessage: (text: string) => void): () => void {
-  const es = new EventSource(`/api/push/listen?crushSlug=${encodeURIComponent(crushSlug)}`)
+  const token = localStorage.getItem('satoken')
+  const qs = token ? `?crushSlug=${encodeURIComponent(crushSlug)}&satoken=${encodeURIComponent(token)}` : `?crushSlug=${encodeURIComponent(crushSlug)}`
+  const es = new EventSource(`/api/push/listen${qs}`)
   es.addEventListener('proactive', (e) => {
     onMessage((e as MessageEvent).data)
   })
-  // EventSource 断线会自动重连，这里无需额外处理
   return () => es.close()
 }
 
@@ -251,9 +258,13 @@ async function sseStream(
   body: Record<string, unknown>,
   onChunk: (chunk: MultiChunk) => void,
 ): Promise<void> {
+  const token = localStorage.getItem('satoken')
   const resp = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: token } : {}),
+    },
     body: JSON.stringify(body),
   })
 
@@ -323,7 +334,11 @@ export async function listVersions(crushId: number): Promise<Version[]> {
  * 构建 crush（SSE 进度流）。
  */
 export async function buildCrush(crushId: number, onEvent: (ev: BuildEvent) => void): Promise<void> {
-  const resp = await fetch(`/api/crush/${crushId}/build`, { method: 'POST' })
+  const token = localStorage.getItem('satoken')
+  const resp = await fetch(`/api/crush/${crushId}/build`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: token } : {}) },
+  })
   const ct = resp.headers.get('content-type') || ''
   if (!resp.ok || !ct.includes('text/event-stream')) {
     const data = (await resp.json().catch(() => null)) as Result<unknown> | null
@@ -351,4 +366,49 @@ export async function buildCrush(crushId: number, onEvent: (ev: BuildEvent) => v
     for (const line of lines) consume(line)
   }
   if (buffer.trim()) consume(buffer)
+}
+
+/** 发送邮箱验证码 */
+export async function sendEmailCode(email: string, purpose: string = 'LOGIN'): Promise<void> {
+  await unwrap(http.post<Result<void>>('/auth/email-code', { email, purpose }))
+}
+
+/** 邮箱注册（注册即登录，返回 token） */
+export async function register(payload: RegisterDTO): Promise<LoginVO> {
+  return unwrap(http.post<Result<LoginVO>>('/auth/register', payload))
+}
+
+/** 邮箱登录（返回 token） */
+export async function login(payload: LoginDTO): Promise<LoginVO> {
+  return unwrap(http.post<Result<LoginVO>>('/auth/login', payload))
+}
+
+/** 登出 */
+export async function logout(): Promise<void> {
+  await unwrap(http.post<Result<void>>('/auth/logout'))
+}
+
+/** 当前登录用户 */
+export async function me(): Promise<UserVO> {
+  return unwrap(http.get<Result<UserVO>>('/auth/me'))
+}
+
+/** 修改密码 */
+export async function changePassword(payload: UpdateProfileDTO): Promise<void> {
+  await unwrap(http.put<Result<void>>('/auth/password', payload))
+}
+
+/** 更新资料 */
+export async function updateProfile(payload: UpdateProfileDTO): Promise<UserVO> {
+  return unwrap(http.put<Result<UserVO>>('/user/profile', payload))
+}
+
+/** 我的资料 */
+export async function myProfile(): Promise<UserVO> {
+  return unwrap(http.get<Result<UserVO>>('/user/me'))
+}
+
+/** 我的配额 */
+export async function myQuota(): Promise<MyQuotaVO> {
+  return unwrap(http.get<Result<MyQuotaVO>>('/user/quota'))
 }

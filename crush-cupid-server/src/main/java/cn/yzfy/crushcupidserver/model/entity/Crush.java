@@ -20,6 +20,9 @@ public class Crush  implements Serializable {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
+    /** 归属用户 id（0=系统共享/演示，见 SecurityContext OwnershipGuard） */
+    private Long userId;
+
     /** 花名/代号 */
     private String name;
 

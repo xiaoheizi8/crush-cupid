@@ -1,13 +1,9 @@
 package cn.yzfy.crushcupidserver.controller;
 
-import cn.hutool.core.util.StrUtil;
 import cn.yzfy.crushcupidserver.common.Result;
-import cn.yzfy.crushcupidserver.exception.BizException;
-import cn.yzfy.crushcupidserver.model.converter.CrushConverter;
+import cn.yzfy.crushcupidserver.logic.CrushLogic;
 import cn.yzfy.crushcupidserver.model.dto.CrushCreateDTO;
 import cn.yzfy.crushcupidserver.model.dto.CrushUpdateDTO;
-import cn.yzfy.crushcupidserver.model.entity.Crush;
-import cn.yzfy.crushcupidserver.service.CrushService;
 import cn.yzfy.crushcupidserver.model.vo.CrushVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,60 +18,38 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 暗恋对象 CRUD
+ * 暗恋对象 CRUD（薄控制器：仅参数绑定，业务逻辑在 {@link CrushLogic}）。
  */
 @RestController
 @RequestMapping("/api/crush")
 @RequiredArgsConstructor
 public class CrushController {
 
-    private final CrushService crushService;
+    private final CrushLogic crushLogic;
 
     @GetMapping
     public Result<List<CrushVO>> list() {
-        List<CrushVO> list = crushService.list().stream().map(CrushConverter::toVO).toList();
-        return Result.ok(list);
+        return Result.ok(crushLogic.list());
     }
 
     @GetMapping("/{id}")
     public Result<CrushVO> get(@PathVariable Long id) {
-        Crush crush = crushService.getById(id);
-        if (crush == null) {
-            throw BizException.notFound("未找到暗恋对象 id=" + id);
-        }
-        return Result.ok(CrushConverter.toVO(crush));
+        return Result.ok(crushLogic.get(id));
     }
 
     @PostMapping
     public Result<CrushVO> create(@RequestBody CrushCreateDTO dto) {
-        if (StrUtil.isBlank(dto.getName())) {
-            throw BizException.badRequest("name 不能为空");
-        }
-        if (StrUtil.isBlank(dto.getSlug())) {
-            throw BizException.badRequest("slug 不能为空");
-        }
-        if (crushService.getBySlug(dto.getSlug()) != null) {
-            throw BizException.badRequest("slug 已存在：" + dto.getSlug());
-        }
-        Crush crush = CrushConverter.toEntity(dto);
-        crushService.save(crush);
-        return Result.ok(CrushConverter.toVO(crush));
+        return Result.ok(crushLogic.create(dto));
     }
 
     @PutMapping("/{id}")
     public Result<CrushVO> update(@PathVariable Long id, @RequestBody CrushUpdateDTO dto) {
-        Crush crush = crushService.getById(id);
-        if (crush == null) {
-            throw BizException.notFound("未找到暗恋对象 id=" + id);
-        }
-        CrushConverter.update(crush, dto);
-        crushService.updateById(crush);
-        return Result.ok(CrushConverter.toVO(crush));
+        return Result.ok(crushLogic.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        crushService.removeById(id);
+        crushLogic.delete(id);
         return Result.ok();
     }
 }

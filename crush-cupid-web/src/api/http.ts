@@ -6,10 +6,18 @@ const http = axios.create({
   timeout: 60000,
 })
 
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('satoken')
+  if (token) {
+    config.headers['Authorization'] = token
+  }
+  return config
+})
+
 http.interceptors.response.use(
   (resp) => resp,
   (err) => {
-    const msg = err?.response?.data?.message || err?.message || 'è¯·æ±‚å¤±è´¥'
+    const msg = err?.response?.data?.message || err?.message || 'ÇëÇóÊ§°Ü'
     message.error(msg)
     return Promise.reject(err)
   },

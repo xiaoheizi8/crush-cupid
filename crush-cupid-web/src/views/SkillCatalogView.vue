@@ -424,7 +424,7 @@ onMounted(load)
 .info-card {
   background: var(--cupid-bg-card);
   border: 1px solid var(--cupid-border);
-  border-radius: var(--cupid-radius);
+  border-radius: var(--cupid-radius-lg);
   box-shadow: var(--cupid-shadow-sm);
   overflow: hidden;
 }
@@ -433,7 +433,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 20px;
+  padding: 16px 20px;
   background: var(--cupid-gradient-soft);
   border-bottom: 1px solid var(--cupid-border);
 }
@@ -455,9 +455,14 @@ onMounted(load)
 }
 
 .info-item {
-  padding: 12px 20px;
+  padding: 16px 20px;
   border-right: 1px solid var(--cupid-border);
   border-bottom: 1px solid var(--cupid-border);
+  transition: background var(--cupid-transition);
+}
+
+.info-item:hover {
+  background: var(--cupid-bg-hover);
 }
 
 .info-item:nth-child(2n) {
@@ -501,7 +506,7 @@ onMounted(load)
 .prompts-card {
   background: var(--cupid-bg-card);
   border: 1px solid var(--cupid-border);
-  border-radius: var(--cupid-radius);
+  border-radius: var(--cupid-radius-lg);
   box-shadow: var(--cupid-shadow-sm);
   overflow: hidden;
 }
@@ -510,7 +515,7 @@ onMounted(load)
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 20px;
+  padding: 16px 20px;
   background: var(--cupid-gradient-soft);
   border-bottom: 1px solid var(--cupid-border);
 }
@@ -537,12 +542,12 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px;
+  padding: 20px;
   background: var(--cupid-gradient-soft);
   border: 1px solid var(--cupid-border);
-  border-radius: var(--cupid-radius-sm);
+  border-radius: var(--cupid-radius);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all var(--cupid-transition);
 }
 
 .prompt-tile:hover {
@@ -588,7 +593,7 @@ onMounted(load)
 /* 军师 tip + 触发词 */
 .advisor-tip {
   margin: 12px 20px 0;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: #f8f0ff;
   border: 1px solid var(--cupid-border);
   border-left: 3px solid #b37feb;
@@ -617,7 +622,7 @@ onMounted(load)
 
 /* 关系报告 / 军师弹窗 */
 .report-body {
-  padding: 16px 20px 20px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -687,16 +692,17 @@ onMounted(load)
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 12px 14px;
   border: 1px solid var(--cupid-border);
-  border-radius: var(--cupid-radius-sm);
+  border-radius: var(--cupid-radius);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color var(--cupid-transition), box-shadow var(--cupid-transition);
 }
 
 .report-history__item:hover {
   border-color: var(--cupid-primary);
+  box-shadow: var(--cupid-shadow-sm);
 }
 
 .report-history__info {

@@ -158,6 +158,42 @@
             <version>5.8.36</version>
         </dependency>
 
+        <!-- Sa-Token 权限认证框架（Spring Boot 3.x 适配） -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
+        <!-- Spring Security Crypto：BCrypt 密码编码器（sa-token 不自带） -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+
+        <!-- Spring Mail：JavaMailSender 真实 SMTP 发送邮箱验证码（注册 / 重置密码） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- Spring Data Redis：验证码存储/频控、登录失败锁定、通用限流 的分布式缓存底座 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!-- Lettuce 连接池（Boot 管理版本） -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
+        <!-- Sa-Token Redis 会话存储：把登录 token 会话存进 Redis，实现多实例共享登录态 -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-redis-jackson</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>

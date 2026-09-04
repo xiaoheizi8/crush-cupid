@@ -25,9 +25,43 @@ public final class AiProviderConverter {
 
     public static AiProviderVO toVO(AiProvider entity) {
         AiProviderVO vo = new AiProviderVO();
-        BeanUtil.copyProperties(entity, vo, "capabilities");
+        vo.setId(entity.getId());
+        vo.setUserId(entity.getUserId());
+        vo.setName(entity.getName());
+        vo.setProviderKey(entity.getProviderKey());
+        vo.setBaseUrl(entity.getBaseUrl());
+        vo.setHasApiKey(hasKey(entity));
+        vo.setApiKeyMask(entity.getApiKeyMask());
+        vo.setModel(entity.getModel());
+        vo.setTemperature(entity.getTemperature());
+        vo.setTopP(entity.getTopP());
+        vo.setMaxTokens(entity.getMaxTokens());
         vo.setCapabilities(parseCapabilities(entity.getCapabilities()));
+        vo.setIsDefault(entity.getIsDefault());
+        vo.setStatus(entity.getStatus());
         return vo;
+    }
+
+    /** 是否已配置可用 API Key（用户私有看密文列，系统共享看明文列） */
+    public static boolean hasKey(AiProvider entity) {
+        if (entity == null) {
+            return false;
+        }
+        if (entity.getUserId() != null) {
+            return entity.getApiKeyEnc() != null;
+        }
+        return StrUtil.isNotBlank(entity.getApiKey());
+    }
+
+    /** 生成脱敏掩码：明文前 2 + **** + 后 4；过短则全打码 */
+    public static String maskKey(String plaintext) {
+        if (StrUtil.isBlank(plaintext)) {
+            return null;
+        }
+        if (plaintext.length() <= 8) {
+            return "****";
+        }
+        return plaintext.substring(0, 2) + "****" + plaintext.substring(plaintext.length() - 4);
     }
 
     public static AiProvider toEntity(AiProviderDTO dto) {

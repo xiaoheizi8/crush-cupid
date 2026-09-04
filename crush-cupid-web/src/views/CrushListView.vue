@@ -286,6 +286,7 @@ onMounted(load)
   border-bottom: 1px solid var(--cupid-border) !important;
   font-weight: 600;
   color: var(--cupid-text);
+  font-size: 13px;
 }
 
 .crush-table :deep(.ant-table-tbody > tr > td) {
@@ -293,7 +294,11 @@ onMounted(load)
 }
 
 .crush-table :deep(.ant-table-tbody > tr:hover > td) {
-  background: var(--cupid-gradient-soft) !important;
+  background: var(--cupid-bg-hover) !important;
+}
+
+.crush-table :deep(.ant-table-tbody > tr) {
+  transition: background var(--cupid-transition);
 }
 
 /* 名称单元格：头像 + 名称 */

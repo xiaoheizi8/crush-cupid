@@ -22,6 +22,9 @@ public class Conversation implements Serializable {
 
     private Long crushId;
 
+    /** 会话归属用户（当前对话用户 id；0=系统共享/演示桶） */
+    private Long userId;
+
     /** user / assistant */
     private String role;
 

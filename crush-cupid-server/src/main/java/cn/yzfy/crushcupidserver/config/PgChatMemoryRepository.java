@@ -2,8 +2,8 @@ package cn.yzfy.crushcupidserver.config;
 
 import cn.yzfy.crushcupidserver.agent.StickerSanitizer;
 import cn.yzfy.crushcupidserver.model.entity.Conversation;
+import cn.yzfy.crushcupidserver.security.UserChatCipher;
 import cn.yzfy.crushcupidserver.service.ConversationService;
-import cn.yzfy.crushcupidserver.service.CrushService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -22,14 +22,20 @@ import java.util.List;
  * @className PgChatMemoryRepository
  * @description 基于 PostgreSQL {@code conversation} 表实现的会话记忆仓库。
  * <p>
- * 复用项目既有表结构 {@code (id, crush_id, role, content, created_at)}：
- * conversationId 约定为 {@code "crush:{crushId}"}，由本类解析出 crushId 后写入 conversation 表。
+ * 表结构 {@code (id, crush_id, user_id, role, content, created_at)}：
+ * conversationId 约定为 {@code "u{userId}:crush:{crushId}"}，由本类解析出 userId（会话归属）与
+ * crushId 后按 {@code (user_id, crush_id)} 读写 conversation 表，实现「同一 crush 多用户共享」时
+ * 会话记忆与加密按用户隔离（共享演示桶 user_id=0 亦互不干扰）。
  * <p>
  * 存储约定：
  * - role 存 MessageType 小写（user/assistant/system/tool）；
- * - content 存 message.getText() 纯文本（多模态 Media 暂不入库，下次重发即可）。
+ * - user_id 存会话归属用户 id（即当前对话用户；0=系统共享/演示桶）；
+ * - content 存 message.getText() 纯文本（多模态 Media 暂不入库，下次重发即可），并按归属用户点对点加密。
  * <p>
- * saveAll 采用「先按 crushId 清空 + 批量插入」的覆盖语义，符合 {@link ChatMemoryRepository} 契约。
+ * 兼容：旧数据以 {@code "crush:{crushId}"}（无 user 前缀）写入，解析时视作归属 {@code 0}/共享桶，
+ * 解密回退全局 KEK 兜底明文，滚动迁移无感。
+ * <p>
+ * saveAll 采用「先按 (user_id, crush_id) 清空 + 批量插入」的覆盖语义，符合 {@link ChatMemoryRepository} 契约。
  * @author 一朝风月
  * @code repository
  * @createTime 2026-08-26
@@ -39,34 +45,41 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PgChatMemoryRepository implements ChatMemoryRepository {
 
-    /** conversationId 前缀，与 CupidAgent 内 {@code "crush:" + crushId} 对齐 */
+    /** conversationId 前缀（用户维度），与 CupidAgent 内 {@code "u{uid}:crush:{crushId}"} 对齐 */
+    public static final String USER_PREFIX = "u";
+    /** conversationId crush 段前缀 */
     public static final String CONV_PREFIX = "crush:";
 
     private final ConversationService conversationService;
-    private final CrushService crushService;
+    private final UserChatCipher userChatCipher;
 
     @Override
     public List<String> findConversationIds() {
-        // 取所有 crush id，拼成 "crush:{id}" 作为 conversationId
-        return crushService.list().stream()
-                .map(c -> CONV_PREFIX + c.getId())
+        // 取所有 (user_id, crush_id) 有记录的会话对，拼成 "u{uid}:crush:{cid}" 作为 conversationId
+        return conversationService.list().stream()
+                .map(c -> USER_PREFIX + (c.getUserId() == null ? 0L : c.getUserId())
+                        + ":" + CONV_PREFIX + c.getCrushId())
+                .distinct()
                 .toList();
     }
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
-        Long crushId = parseCrushId(conversationId);
-        if (crushId == null) {
+        ConvKey key = parse(conversationId);
+        if (key == null) {
             return List.of();
         }
-        // 按 created_at 升序还原对话顺序
+        // 按归属用户 + crush 过滤，created_at 升序还原对话顺序
         List<Conversation> rows = conversationService.lambdaQuery()
-                .eq(Conversation::getCrushId, crushId)
+                .eq(Conversation::getCrushId, key.crushId())
+                .eq(Conversation::getUserId, key.userId())
                 .orderByAsc(Conversation::getCreatedAt)
                 .list();
         List<Message> messages = new ArrayList<>(rows.size());
         for (Conversation row : rows) {
-            Message msg = toMessage(row.getRole(), row.getContent());
+            // 读取时按归属用户解密：存量明文/历史全局密钥由 UserChatCipher 兜底
+            String content = userChatCipher.decryptForUser(row.getContent(), key.userId());
+            Message msg = toMessage(row.getRole(), content);
             if (msg != null) {
                 messages.add(msg);
             }
@@ -92,14 +105,15 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
-        Long crushId = parseCrushId(conversationId);
-        if (crushId == null) {
+        ConvKey key = parse(conversationId);
+        if (key == null) {
             log.warn("saveAll 跳过：无法解析 conversationId={}", conversationId);
             return;
         }
-        // 覆盖语义：先清空该 crush 的所有历史，再批量插入新列表
+        // 覆盖语义：先清空该 (user_id, crush_id) 的历史，再批量插入新列表
         conversationService.lambdaUpdate()
-                .eq(Conversation::getCrushId, crushId)
+                .eq(Conversation::getCrushId, key.crushId())
+                .eq(Conversation::getUserId, key.userId())
                 .remove();
         if (messages == null || messages.isEmpty()) {
             return;
@@ -108,11 +122,12 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
         Date now = new Date();
         for (Message msg : messages) {
             Conversation row = new Conversation();
-            row.setCrushId(crushId);
+            row.setCrushId(key.crushId());
+            row.setUserId(key.userId());
             row.setRole(roleCode(msg.getMessageType()));
-            // 写入侧不清洗：原样存 [[sticker:URL]]，保留 URL 供前端历史回显。
-            // 读取侧（findByConversationId）注入 prompt 前清洗，防止 LLM 模仿 URL。
-            row.setContent(msg.getText());
+            // 写入侧不清洗：原样存 [[sticker:URL]]，保留 URL 供前端历史回显；并按归属用户点对点加密落库。
+            // 读取侧（findByConversationId）解密后注入 prompt 前清洗，防止 LLM 模仿 URL。
+            row.setContent(userChatCipher.encryptForUser(msg.getText(), key.userId()));
             row.setCreatedAt(now);
             rows.add(row);
         }
@@ -121,25 +136,46 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public void deleteByConversationId(String conversationId) {
-        Long crushId = parseCrushId(conversationId);
-        if (crushId == null) {
+        ConvKey key = parse(conversationId);
+        if (key == null) {
             return;
         }
         conversationService.lambdaUpdate()
-                .eq(Conversation::getCrushId, crushId)
+                .eq(Conversation::getCrushId, key.crushId())
+                .eq(Conversation::getUserId, key.userId())
                 .remove();
     }
 
-    /** conversationId -> crushId；非 "crush:" 前缀或解析失败返回 null */
-    private Long parseCrushId(String conversationId) {
-        if (conversationId == null || !conversationId.startsWith(CONV_PREFIX)) {
+    /** conversationId -> ConvKey(userId, crushId)；无法解析返回 null。兼容旧 "crush:{cid}"（userId=0）。 */
+    private ConvKey parse(String conversationId) {
+        if (conversationId == null) {
             return null;
         }
-        try {
-            return Long.parseLong(conversationId.substring(CONV_PREFIX.length()));
-        } catch (NumberFormatException e) {
-            return null;
+        if (conversationId.startsWith(USER_PREFIX + ":")) {
+            int sep = conversationId.indexOf(":" + CONV_PREFIX);
+            if (sep < 0) {
+                return null;
+            }
+            try {
+                long userId = Long.parseLong(conversationId.substring(USER_PREFIX.length() + 1, sep));
+                long crushId = Long.parseLong(conversationId.substring(sep + CONV_PREFIX.length() + 1));
+                return new ConvKey(userId, crushId);
+            } catch (NumberFormatException e) {
+                return null;
+            }
         }
+        // 旧格式 "crush:{crushId}"：归属视作共享桶 0
+        if (conversationId.startsWith(CONV_PREFIX)) {
+            try {
+                return new ConvKey(0L, Long.parseLong(conversationId.substring(CONV_PREFIX.length())));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private record ConvKey(long userId, long crushId) {
     }
 
     /** MessageType -> 表中 role 字段小写值 */

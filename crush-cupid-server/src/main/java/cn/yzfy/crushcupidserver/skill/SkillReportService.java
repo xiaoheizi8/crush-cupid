@@ -47,6 +47,7 @@ public class SkillReportService {
     private final SkillCatalogService skillCatalogService;
     private final cn.yzfy.crushcupidserver.config.ChatModelRegistry chatModelRegistry;
     private final SkillAdvisorService skillAdvisorService;
+    private final cn.yzfy.crushcupidserver.security.UserChatCipher userChatCipher;
 
     /**
      * 生成关系报告（Markdown 文本）。
@@ -59,7 +60,7 @@ public class SkillReportService {
         if (crush == null) {
             throw BizException.notFound("未找到暗恋对象：" + crushSlug);
         }
-        String raw = rawConversation(crush.getId());
+        String raw = rawConversation(crush.getId(), crush.getUserId() == null ? 0L : crush.getUserId());
         String profile = buildProfile(crush);
         String template = loadReportTemplate();
 
@@ -166,18 +167,19 @@ public class SkillReportService {
         }
     }
 
-    /** 取最近对话（用用户真实消息为主，清洗图片标记，限制条数） */
-    private String rawConversation(Long crushId) {
+    /** 取最近对话（以归属用户的真实消息为主，清洗图片标记，限制条数） */
+    private String rawConversation(Long crushId, long ownerId) {
         List<Conversation> rows = conversationService.lambdaQuery()
                 .eq(Conversation::getCrushId, crushId)
+                .eq(Conversation::getUserId, ownerId)
                 .orderByDesc(Conversation::getCreatedAt)
                 .last("limit " + RECENT_CONV_LIMIT)
                 .list();
         // 倒序恢复时间正序
         java.util.Collections.reverse(rows);
         return rows.stream()
-                .filter(r -> StrUtil.isNotBlank(r.getContent()))
-                .map(r -> "[" + r.getRole() + "] " + cleanMedia(r.getContent()))
+                .filter(r -> StrUtil.isNotBlank(userChatCipher.decryptForUser(r.getContent(), ownerId)))
+                .map(r -> "[" + r.getRole() + "] " + cleanMedia(userChatCipher.decryptForUser(r.getContent(), ownerId)))
                 .collect(Collectors.joining("\n"));
     }
 

@@ -5,6 +5,68 @@
     title="对话"
     :subtitle="currentSlug ? `正在和 ${currentName} 聊天` : '选择一个暗恋对象开始对话'"
   >
+    <div v-if="!isLoggedIn" class="login-overlay" @click.self="closeLoginOverlay">
+      <div class="login-overlay-card" @click.stop>
+        <div class="login-overlay-header">
+          <div class="login-overlay-logo">💘</div>
+          <div class="login-overlay-title">Cupid</div>
+          <div class="login-overlay-sub">暗恋模拟器 · 请先登录</div>
+        </div>
+        <a-tabs v-model:activeKey="loginTab" class="login-overlay-tabs">
+          <a-tab-pane key="login" tab="登录">
+            <a-form :model="loginForm" layout="vertical" @finish="handleLogin">
+              <a-form-item label="邮箱" name="email">
+                <a-input v-model:value="loginForm.email" placeholder="请输入邮箱">
+                  <template #suffix>
+                    <a-button size="small" type="primary" @click="sendOverlayCode" :disabled="!loginForm.email || overlaySendingCode || overlayCountdown > 0" style="margin-left: 4px; font-size: 11px;">
+                      {{ overlayCountdown > 0 ? `${overlayCountdown}s` : (overlaySendingCode ? '发送中' : '验证码') }}
+                    </a-button>
+                  </template>
+                </a-input>
+              </a-form-item>
+              <a-form-item v-if="overlayShowCode" label="验证码" name="code">
+                <a-input v-model:value="loginForm.code" placeholder="请输入验证码" />
+              </a-form-item>
+              <a-form-item label="密码" name="password">
+                <a-input-password v-model:value="loginForm.password" placeholder="请输入密码" />
+              </a-form-item>
+              <a-form-item>
+                <a-button type="primary" html-type="submit" block :loading="loginLoading">
+                  登录
+                </a-button>
+              </a-form-item>
+            </a-form>
+          </a-tab-pane>
+          <a-tab-pane key="register" tab="注册">
+            <a-form :model="registerForm" layout="vertical" @finish="handleRegister">
+              <a-form-item label="用户名" name="username">
+                <a-input v-model:value="registerForm.username" placeholder="请输入用户名" />
+              </a-form-item>
+              <a-form-item label="邮箱" name="email">
+                <a-input v-model:value="registerForm.email" placeholder="请输入邮箱">
+                  <template #suffix>
+                    <a-button size="small" type="primary" @click="sendOverlayRegCode" :disabled="!registerForm.email || overlaySendingRegCode || overlayRegCountdown > 0" style="margin-left: 4px; font-size: 11px;">
+                      {{ overlayRegCountdown > 0 ? `${overlayRegCountdown}s` : (overlaySendingRegCode ? '发送中' : '验证码') }}
+                    </a-button>
+                  </template>
+                </a-input>
+              </a-form-item>
+              <a-form-item v-if="overlayShowRegCode" label="验证码" name="code">
+                <a-input v-model:value="registerForm.code" placeholder="请输入验证码" />
+              </a-form-item>
+              <a-form-item label="密码" name="password">
+                <a-input-password v-model:value="registerForm.password" placeholder="请输入密码" />
+              </a-form-item>
+              <a-form-item>
+                <a-button type="primary" html-type="submit" block :loading="loginLoading">
+                  注册
+                </a-button>
+              </a-form-item>
+            </a-form>
+          </a-tab-pane>
+        </a-tabs>
+      </div>
+    </div>
     <div class="chat-page">
       <a-row :gutter="20" class="chat-row">
         <!-- 左侧：crush 选择 -->
@@ -174,8 +236,9 @@
  * 支持一次连发多条短消息（按 chunk.index 切气泡）、crush 主动发起对话、
  * 以及把 crush 的文本回复一键转 CosyVoice 语音播放。
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
+import { login, register, sendEmailCode } from '@/api'
 import {
   getChatHistory,
   listCrushes,
@@ -233,6 +296,122 @@ const currentCrush = computed(() =>
   crushes.value.find((c) => c.slug === currentSlug.value),
 )
 const importOpen = ref(false)
+
+/** 登录覆盖层 */
+const isLoggedIn = ref(!!localStorage.getItem('satoken'))
+const loginTab = ref('login')
+const loginLoading = ref(false)
+const overlaySendingCode = ref(false)
+const overlayCountdown = ref(0)
+const overlayShowCode = ref(false)
+const overlaySendingRegCode = ref(false)
+const overlayRegCountdown = ref(0)
+const overlayShowRegCode = ref(false)
+let overlayCountdownTimer: ReturnType<typeof setInterval> | null = null
+let overlayRegCountdownTimer: ReturnType<typeof setInterval> | null = null
+const loginForm = reactive({ email: '', password: '', code: '' })
+const registerForm = reactive({ username: '', email: '', password: '', code: '' })
+
+async function sendOverlayCode() {
+  if (!loginForm.email) {
+    message.warning('请先输入邮箱')
+    return
+  }
+  overlaySendingCode.value = true
+  try {
+    await sendEmailCode(loginForm.email, 'LOGIN')
+    message.success('验证码已发送')
+    overlayShowCode.value = true
+    overlayCountdown.value = 60
+    overlayCountdownTimer = setInterval(() => {
+      overlayCountdown.value--
+      if (overlayCountdown.value <= 0) {
+        clearInterval(overlayCountdownTimer)
+        overlayCountdownTimer = null
+        overlaySendingCode.value = false
+      }
+    }, 1000)
+  } catch (e: any) {
+    message.error(e?.message || '发送失败')
+  } finally {
+    overlaySendingCode.value = false
+  }
+}
+
+async function sendOverlayRegCode() {
+  if (!registerForm.email) {
+    message.warning('请先输入邮箱')
+    return
+  }
+  overlaySendingRegCode.value = true
+  try {
+    await sendEmailCode(registerForm.email, 'REGISTER')
+    message.success('验证码已发送')
+    overlayShowRegCode.value = true
+    overlayRegCountdown.value = 60
+    overlayRegCountdownTimer = setInterval(() => {
+      overlayRegCountdown.value--
+      if (overlayRegCountdown.value <= 0) {
+        clearInterval(overlayRegCountdownTimer)
+        overlayRegCountdownTimer = null
+        overlaySendingRegCode.value = false
+      }
+    }, 1000)
+  } catch (e: any) {
+    message.error(e?.message || '发送失败')
+  } finally {
+    overlaySendingRegCode.value = false
+  }
+}
+
+function closeLoginOverlay() {
+  if (isLoggedIn.value) return
+}
+
+async function handleLogin() {
+  if (!loginForm.email || !loginForm.password) {
+    message.warning('请填写邮箱和密码')
+    return
+  }
+  loginLoading.value = true
+  try {
+    const vo = await login({ email: loginForm.email, password: loginForm.password })
+    localStorage.setItem('satoken', vo.tokenValue)
+    isLoggedIn.value = true
+    message.success('登录成功')
+    loginForm.email = ''
+    loginForm.password = ''
+  } catch (e: any) {
+    message.error(e?.message || '登录失败')
+  } finally {
+    loginLoading.value = false
+  }
+}
+
+async function handleRegister() {
+  if (!registerForm.email || !registerForm.password) {
+    message.warning('请填写邮箱和密码')
+    return
+  }
+  loginLoading.value = true
+  try {
+    const vo = await register({
+      email: registerForm.email,
+      password: registerForm.password,
+      username: registerForm.username,
+    })
+    localStorage.setItem('satoken', vo.tokenValue)
+    isLoggedIn.value = true
+    message.success('注册成功')
+    registerForm.email = ''
+    registerForm.password = ''
+    registerForm.username = ''
+  } catch (e: any) {
+    message.error(e?.message || '注册失败')
+  } finally {
+    loginLoading.value = false
+  }
+}
 
 /** 加载 crush 列表，默认选中第一个 */
 async function loadCrushes() {
@@ -625,13 +804,20 @@ function playNudgeTone() {
   }
 }
 
-onMounted(loadCrushes)
+onMounted(() => {
+  loadCrushes()
+  window.addEventListener('storage', () => {
+    isLoggedIn.value = !!localStorage.getItem('satoken')
+  })
+})
 onUnmounted(() => {
   stopPlayback()
   if (closePush) {
     closePush()
     closePush = null
   }
+  if (overlayCountdownTimer) { clearInterval(overlayCountdownTimer); overlayCountdownTimer = null }
+  if (overlayRegCountdownTimer) { clearInterval(overlayRegCountdownTimer); overlayRegCountdownTimer = null }
 })
 </script>
 
@@ -654,8 +840,11 @@ onUnmounted(() => {
   background: var(--cupid-bg-card);
   border: 1px solid var(--cupid-border);
   border-radius: var(--cupid-radius);
-  padding: 18px;
+  padding: 20px;
   box-shadow: var(--cupid-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .side-card__title {
@@ -666,8 +855,9 @@ onUnmounted(() => {
 }
 
 .side-card__btn {
-  margin-top: 12px;
+  margin-top: auto;
   border-radius: var(--cupid-radius-sm) !important;
+  height: 40px !important;
 }
 
 .side-card__btn--nudge {
@@ -681,13 +871,14 @@ onUnmounted(() => {
 }
 
 .side-card__hint {
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 4px;
+  padding: 12px 14px;
   background: var(--cupid-gradient-soft);
   border-radius: var(--cupid-radius-sm);
   color: var(--cupid-text-secondary);
   font-size: 12px;
   line-height: 1.6;
+  border-left: 3px solid rgba(255, 90, 122, 0.3);
 }
 
 /* 右侧聊天卡片 */
@@ -704,7 +895,7 @@ onUnmounted(() => {
 
 .chat-card__head {
   position: relative;
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--cupid-border);
   background: var(--cupid-gradient-soft);
 }
@@ -756,7 +947,7 @@ onUnmounted(() => {
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 18px 20px;
+  padding: 20px 24px;
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 90, 122, 0.03), transparent 40%),
     radial-gradient(circle at 80% 80%, rgba(255, 142, 83, 0.03), transparent 40%);
@@ -765,9 +956,9 @@ onUnmounted(() => {
 /* 消息条目 */
 .msg {
   display: flex;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .msg.user {
@@ -788,14 +979,14 @@ onUnmounted(() => {
 }
 
 .bubble {
-    max-width: 70%;
-    padding: 10px 14px;
-    border-radius: 16px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 14px;
-    line-height: 1.6;
-  }
+  max-width: 70%;
+  padding: 10px 16px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.6;
+}
 
   .msg.user .bubble {
     background: var(--cupid-gradient);
@@ -971,7 +1162,6 @@ onUnmounted(() => {
   border-radius: var(--cupid-radius-sm) !important;
 }
 
-/* 原生 textarea 替换 a-textarea：保持视觉一致 + 统一字体/边框/聚焦样式 */
 .native-textarea {
   resize: none;
   border: 1px solid var(--ant-color-border, #d9d9d9);
@@ -982,7 +1172,8 @@ onUnmounted(() => {
   background: var(--ant-color-bg-container, #fff);
   color: var(--ant-color-text, rgba(0,0,0,0.88));
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color var(--cupid-transition);
+  border-radius: var(--cupid-radius-sm);
 }
 .native-textarea:focus {
   border-color: var(--ant-color-primary, #69b1ff);

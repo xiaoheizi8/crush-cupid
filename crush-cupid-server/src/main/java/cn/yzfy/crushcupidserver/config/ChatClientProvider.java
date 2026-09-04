@@ -10,6 +10,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
@@ -34,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatClientProvider {
 
     private final ChatModelRegistry chatModelRegistry;
+    private final UserProviderResolver userProviderResolver;
     private final SafetyAdvisor safetyAdvisor;
     private final CrushTools crushTools;
     private final OcrTools ocrTools;
@@ -83,11 +85,65 @@ public class ChatClientProvider {
     }
 
     private ChatClient buildClient(String provider) {
-        org.springframework.ai.chat.model.ChatModel chatModel = chatModelRegistry.get(provider);
+        ChatModel chatModel = resolveChatModel(provider);
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(safetyAdvisor)
                 .defaultToolCallbacks(allToolCallbacks)
                 .build();
+    }
+
+    /**
+     * 解析 provider 对应的 ChatModel：
+     * <ul>
+     *   <li>用户私有的路由代号 {@code {userId}:{providerKey}}：校验调用方即本人后，
+     *       在请求线程瞬态解密其私有 key 并构建模型（{@link UserProviderResolver}）；</li>
+     *   <li>否则走全局 {@link ChatModelRegistry}（系统/YAML 供应商）。</li>
+     * </ul>
+     * 仅在请求线程调用（此时 Sa-Token 登录上下文在 ThreadLocal 上），故越权校验是同步且安全的。
+     */
+    private ChatModel resolveChatModel(String provider) {
+        PrivateRoute privateRoute = tryParsePrivate(provider);
+        if (privateRoute != null) {
+            return userProviderResolver.get(privateRoute.userId, privateRoute.providerKey);
+        }
+        return chatModelRegistry.get(provider);
+    }
+
+    /** 解析私有路由代号；非法/非私有返回 null。userId 必须等于当前登录用户，杜绝跨用户调用。 */
+    private PrivateRoute tryParsePrivate(String provider) {
+        if (StrUtil.isBlank(provider)) {
+            return null;
+        }
+        int colon = provider.indexOf(':');
+        if (colon <= 0 || colon == provider.length() - 1) {
+            return null;
+        }
+        String uidStr = provider.substring(0, colon);
+        if (!uidStr.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        long uid;
+        try {
+            uid = Long.parseLong(uidStr);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        long current = currentUserIdSafe();
+        if (current != uid) {
+            throw BizException.forbidden("无权使用该私有供应商");
+        }
+        return new PrivateRoute(uid, provider.substring(colon + 1));
+    }
+
+    private long currentUserIdSafe() {
+        try {
+            return cn.yzfy.crushcupidserver.security.SecurityUtils.currentUserId();
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    private record PrivateRoute(long userId, String providerKey) {
     }
 
     /**
