@@ -22,9 +22,13 @@ import java.util.List;
 import java.util.Locale;
 
 import cn.yzfy.crushApp.R;
+import cn.yzfy.crushApp.api.AuthApi;
 import cn.yzfy.crushApp.api.CrushApi;
 import cn.yzfy.crushApp.api.GsonFactory;
+import cn.yzfy.crushApp.api.Rest;
+import cn.yzfy.crushApp.api.VoiceApi;
 import cn.yzfy.crushApp.model.Crush;
+import cn.yzfy.crushApp.model.User;
 
 /** 首页：暗恋对象列表 + 新建 */
 public class HomeFragment extends Fragment {
@@ -83,6 +87,8 @@ public class HomeFragment extends Fragment {
         quick.addView(quickChip("🤵 军师", () -> Nav.push(requireActivity(), AdvisorFragment.class, null)));
         quick.addView(quickChip("📦 技能包", () -> Nav.push(requireActivity(), SkillCatalogFragment.class, null)));
         quick.addView(quickChip("🧠 模型", () -> Nav.push(requireActivity(), ProviderFragment.class, null)));
+        quick.addView(quickChip("🎙 音色", () -> Nav.push(requireActivity(), VoiceConfigFragment.class, null)));
+        quick.addView(quickChip("🚪 登出", this::logout));
 
         // 列表
         RecyclerView list = new RecyclerView(requireContext());
@@ -126,6 +132,18 @@ public class HomeFragment extends Fragment {
     public void onResume() {
         super.onResume();
         load();
+        syncVoicePref();
+    }
+
+    /** 从服务端同步偏好音色到本地缓存 */
+    private void syncVoicePref() {
+        AuthApi.me(new RestCallback<User>(u -> {
+            if (u != null) {
+                VoiceApi.cacheVoice(u.preferredVoice);
+            }
+        }, e -> {
+            // 静默失败，网络问题不阻塞首页
+        }));
     }
 
     private TextView quickChip(String label, Runnable action) {
@@ -151,6 +169,16 @@ public class HomeFragment extends Fragment {
             adapter.notifyDataSetChanged();
             empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
         }, e -> Ui.toast(requireContext(), e, true)));
+    }
+
+    /** 登出：走服务端登出，清 token 后回到登录页 */
+    private void logout() {
+        Ui.confirm(requireContext(), "登出", "确定要退出当前账号吗？", "登出", () -> {
+            AuthApi.logout(new RestCallback<>(v -> Ui.post(() -> {
+                AuthApi.clearToken();
+                Nav.reset(requireActivity(), new cn.yzfy.crushApp.ui.LoginFragment());
+            }), e -> Ui.toast(requireContext(), e)));
+        });
     }
 
     private class RestCallback<T> implements cn.yzfy.crushApp.api.Rest.Callback<T> {

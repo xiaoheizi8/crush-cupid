@@ -15,17 +15,8 @@
         <a-tabs v-model:activeKey="loginTab" class="login-overlay-tabs">
           <a-tab-pane key="login" tab="登录">
             <a-form :model="loginForm" layout="vertical" @finish="handleLogin">
-              <a-form-item label="邮箱" name="email">
-                <a-input v-model:value="loginForm.email" placeholder="请输入邮箱">
-                  <template #suffix>
-                    <a-button size="small" type="primary" @click="sendOverlayCode" :disabled="!loginForm.email || overlaySendingCode || overlayCountdown > 0" style="margin-left: 4px; font-size: 11px;">
-                      {{ overlayCountdown > 0 ? `${overlayCountdown}s` : (overlaySendingCode ? '发送中' : '验证码') }}
-                    </a-button>
-                  </template>
-                </a-input>
-              </a-form-item>
-              <a-form-item v-if="overlayShowCode" label="验证码" name="code">
-                <a-input v-model:value="loginForm.code" placeholder="请输入验证码" />
+               <a-form-item label="邮箱" name="email">
+                <a-input v-model:value="loginForm.email" placeholder="请输入邮箱" />
               </a-form-item>
               <a-form-item label="密码" name="password">
                 <a-input-password v-model:value="loginForm.password" placeholder="请输入密码" />
@@ -42,17 +33,8 @@
               <a-form-item label="用户名" name="username">
                 <a-input v-model:value="registerForm.username" placeholder="请输入用户名" />
               </a-form-item>
-              <a-form-item label="邮箱" name="email">
-                <a-input v-model:value="registerForm.email" placeholder="请输入邮箱">
-                  <template #suffix>
-                    <a-button size="small" type="primary" @click="sendOverlayRegCode" :disabled="!registerForm.email || overlaySendingRegCode || overlayRegCountdown > 0" style="margin-left: 4px; font-size: 11px;">
-                      {{ overlayRegCountdown > 0 ? `${overlayRegCountdown}s` : (overlaySendingRegCode ? '发送中' : '验证码') }}
-                    </a-button>
-                  </template>
-                </a-input>
-              </a-form-item>
-              <a-form-item v-if="overlayShowRegCode" label="验证码" name="code">
-                <a-input v-model:value="registerForm.code" placeholder="请输入验证码" />
+               <a-form-item label="邮箱" name="email">
+                <a-input v-model:value="registerForm.email" placeholder="请输入邮箱" />
               </a-form-item>
               <a-form-item label="密码" name="password">
                 <a-input-password v-model:value="registerForm.password" placeholder="请输入密码" />
@@ -238,7 +220,7 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { login, register, sendEmailCode } from '@/api'
+import { login, register } from '@/api'
 import {
   getChatHistory,
   listCrushes,
@@ -301,72 +283,8 @@ const importOpen = ref(false)
 const isLoggedIn = ref(!!localStorage.getItem('satoken'))
 const loginTab = ref('login')
 const loginLoading = ref(false)
-const overlaySendingCode = ref(false)
-const overlayCountdown = ref(0)
-const overlayShowCode = ref(false)
-const overlaySendingRegCode = ref(false)
-const overlayRegCountdown = ref(0)
-const overlayShowRegCode = ref(false)
-let overlayCountdownTimer: ReturnType<typeof setInterval> | null = null
-let overlayRegCountdownTimer: ReturnType<typeof setInterval> | null = null
-const loginForm = reactive({ email: '', password: '', code: '' })
-const registerForm = reactive({ username: '', email: '', password: '', code: '' })
-
-async function sendOverlayCode() {
-  if (!loginForm.email) {
-    message.warning('请先输入邮箱')
-    return
-  }
-  overlaySendingCode.value = true
-  try {
-    await sendEmailCode(loginForm.email, 'LOGIN')
-    message.success('验证码已发送')
-    overlayShowCode.value = true
-    overlayCountdown.value = 60
-    overlayCountdownTimer = setInterval(() => {
-      overlayCountdown.value--
-      if (overlayCountdown.value <= 0) {
-        clearInterval(overlayCountdownTimer)
-        overlayCountdownTimer = null
-        overlaySendingCode.value = false
-      }
-    }, 1000)
-  } catch (e: any) {
-    message.error(e?.message || '发送失败')
-  } finally {
-    overlaySendingCode.value = false
-  }
-}
-
-async function sendOverlayRegCode() {
-  if (!registerForm.email) {
-    message.warning('请先输入邮箱')
-    return
-  }
-  overlaySendingRegCode.value = true
-  try {
-    await sendEmailCode(registerForm.email, 'REGISTER')
-    message.success('验证码已发送')
-    overlayShowRegCode.value = true
-    overlayRegCountdown.value = 60
-    overlayRegCountdownTimer = setInterval(() => {
-      overlayRegCountdown.value--
-      if (overlayRegCountdown.value <= 0) {
-        clearInterval(overlayRegCountdownTimer)
-        overlayRegCountdownTimer = null
-        overlaySendingRegCode.value = false
-      }
-    }, 1000)
-  } catch (e: any) {
-    message.error(e?.message || '发送失败')
-  } finally {
-    overlaySendingRegCode.value = false
-  }
-}
-
-function closeLoginOverlay() {
-  if (isLoggedIn.value) return
-}
+const loginForm = reactive({ email: '', password: '' })
+const registerForm = reactive({ username: '', email: '', password: '' })
 
 async function handleLogin() {
   if (!loginForm.email || !loginForm.password) {
@@ -816,8 +734,6 @@ onUnmounted(() => {
     closePush()
     closePush = null
   }
-  if (overlayCountdownTimer) { clearInterval(overlayCountdownTimer); overlayCountdownTimer = null }
-  if (overlayRegCountdownTimer) { clearInterval(overlayRegCountdownTimer); overlayRegCountdownTimer = null }
 })
 </script>
 
@@ -840,11 +756,15 @@ onUnmounted(() => {
   background: var(--cupid-bg-card);
   border: 1px solid var(--cupid-border);
   border-radius: var(--cupid-radius);
-  padding: 20px;
+  padding: 22px;
   box-shadow: var(--cupid-shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  transition: box-shadow var(--cupid-transition);
+}
+.side-card:hover {
+  box-shadow: var(--cupid-shadow);
 }
 
 .side-card__title {
@@ -956,9 +876,14 @@ onUnmounted(() => {
 /* 消息条目 */
 .msg {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   align-items: flex-end;
   gap: 10px;
+  animation: msgEnter 0.3s ease-out;
+}
+@keyframes msgEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .msg.user {
@@ -966,40 +891,69 @@ onUnmounted(() => {
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 18px;
   box-shadow: var(--cupid-shadow-sm);
   flex-shrink: 0;
+  transition: transform var(--cupid-transition-bounce);
+}
+.avatar:hover {
+  transform: scale(1.08);
+}
+.msg.user .avatar {
+  background: linear-gradient(135deg, #f0eef5, #e8e4f0);
+}
+.msg.assistant .avatar {
+  background: linear-gradient(135deg, #faf0fc, #fff5f8);
 }
 
 .bubble {
-  max-width: 70%;
-  padding: 10px 16px;
-  border-radius: 16px;
+  max-width: 72%;
+  padding: 11px 16px;
+  border-radius: 18px;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 14.5px;
+  line-height: 1.65;
+  transition: box-shadow var(--cupid-transition);
 }
 
   .msg.user .bubble {
     background: var(--cupid-gradient);
     color: #fff;
-    border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 12px rgba(255, 90, 122, 0.25);
+    border-bottom-right-radius: 5px;
+    box-shadow: 0 4px 16px rgba(196, 78, 200, 0.28);
+    position: relative;
+    overflow: hidden;
+  }
+  .msg.user .bubble::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.1) 50%, transparent 60%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--cupid-transition);
+  }
+  .msg.user .bubble:hover::after {
+    opacity: 1;
   }
 
   .msg.assistant .bubble {
-    background: #fff;
+    background: var(--cupid-bg-card);
     color: var(--cupid-text);
     border: 1px solid var(--cupid-border);
-    border-bottom-left-radius: 4px;
+    border-bottom-left-radius: 5px;
+    box-shadow: var(--cupid-shadow-xs);
+  }
+  .msg.assistant .bubble:hover {
+    box-shadow: var(--cupid-shadow-sm);
   }
 
   .bubble__voice {
@@ -1022,7 +976,7 @@ onUnmounted(() => {
   }
 
   .voice-btn:hover:not(:disabled) {
-    background: rgba(255, 105, 180, 0.12);
+    background: rgba(196, 78, 200, 0.12);
   }
 
   .voice-btn:disabled {
@@ -1045,9 +999,13 @@ onUnmounted(() => {
 
 .sticker-img {
   display: block;
-  max-width: 140px;
-  max-height: 140px;
-  border-radius: 10px;
+  max-width: 150px;
+  max-height: 150px;
+  border-radius: 12px;
+  transition: transform var(--cupid-transition-bounce);
+}
+.sticker-img:hover {
+  transform: scale(1.05);
 }
 
 /* 用户发送的图片气泡 */
@@ -1060,11 +1018,16 @@ onUnmounted(() => {
 
 .chat-img {
   display: block;
-  max-width: 260px;
-  max-height: 260px;
-  border-radius: 12px;
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 14px;
   border: 1px solid var(--cupid-border);
   cursor: zoom-in;
+  transition: transform var(--cupid-transition-bounce), box-shadow var(--cupid-transition);
+}
+.chat-img:hover {
+  transform: scale(1.02);
+  box-shadow: var(--cupid-shadow);
 }
 
 /* 打字光标动画 */
@@ -1100,9 +1063,9 @@ onUnmounted(() => {
 .input-row {
   display: flex;
   gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--cupid-border);
-  background: #fff;
+  padding: 16px 22px;
+  border-top: 1px solid var(--cupid-border-light);
+  background: linear-gradient(180deg, var(--cupid-bg-card) 0%, #fafafa 100%);
   align-items: flex-end;
   flex-wrap: wrap;
 }
@@ -1164,24 +1127,27 @@ onUnmounted(() => {
 
 .native-textarea {
   resize: none;
-  border: 1px solid var(--ant-color-border, #d9d9d9);
-  padding: 8px 12px;
+  border: 1px solid var(--cupid-border);
+  padding: 10px 14px;
   font-family: inherit;
   font-size: 14px;
-  line-height: 1.5;
-  background: var(--ant-color-bg-container, #fff);
-  color: var(--ant-color-text, rgba(0,0,0,0.88));
+  line-height: 1.6;
+  background: #fff;
+  color: var(--cupid-text);
   outline: none;
-  transition: border-color var(--cupid-transition);
+  transition: border-color var(--cupid-transition), box-shadow var(--cupid-transition);
   border-radius: var(--cupid-radius-sm);
 }
 .native-textarea:focus {
-  border-color: var(--ant-color-primary, #69b1ff);
-  box-shadow: 0 0 0 2px rgba(105,177,255,0.2);
+  border-color: var(--cupid-primary);
+  box-shadow: 0 0 0 3px rgba(196, 78, 200, 0.12);
 }
 .native-textarea:disabled {
-  background: var(--ant-color-bg-container-disabled, #f5f5f5);
+  background: #f9f9fa;
   cursor: not-allowed;
+}
+.native-textarea::placeholder {
+  color: var(--cupid-text-muted);
 }
 
 .send-btn {

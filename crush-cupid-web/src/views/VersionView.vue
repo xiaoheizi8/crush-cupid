@@ -1,7 +1,7 @@
 
 <template>
-  <PageContainer icon="📜" title="版本历史" :subtitle="crushName ? crushName + ' 的版本记录' : '加载中...'">
-    <div v-if="loading" class="loading">加载中...</div>
+  <PageContainer icon="📜" :title="t('version.title')" :subtitle="crushName ? crushName + ' 的版本记录' : t('common.loading')">
+    <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="versions.length" class="version-page">
       <a-timeline>
         <a-timeline-item v-for="v in versions" :key="v.id">
@@ -28,11 +28,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { listVersions } from '@/api'
 import type { VersionVO } from '@/types'
 
+const { t } = useI18n()
 const route = useRoute()
 const versions = ref<VersionVO[]>([])
 const loading = ref(true)

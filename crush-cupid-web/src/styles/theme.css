@@ -7,37 +7,53 @@
  */
 
 :root {
-  /* 主题色：粉玫渐变（Cupid 丘比特主题） */
-  --cupid-primary: #ff5a7a;
-  --cupid-primary-soft: #ff8aa0;
-  --cupid-gradient: linear-gradient(135deg, #ff6a8a 0%, #ff8e53 100%);
-  --cupid-gradient-soft: linear-gradient(135deg, #fff1f4 0%, #fff6f0 100%);
-  --cupid-gradient-dark: linear-gradient(135deg, #2a1f2e 0%, #3a2530 100%);
+  /* 主题色：浪漫紫粉渐变（薰衣草紫 + 玫瑰粉 + 暖金） */
+  --cupid-primary: #c44ec8;
+  --cupid-primary-soft: #e078e0;
+  --cupid-primary-deep: #a83ab8;
+  --cupid-accent: #ff6b9d;
+  --cupid-accent-warm: #f9a26c;
+  --cupid-gradient: linear-gradient(135deg, #c44ec8 0%, #ff6b9d 50%, #f9a26c 100%);
+  --cupid-gradient-2: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  --cupid-gradient-soft: linear-gradient(135deg, #faf0fc 0%, #fff5f8 50%, #fffbf5 100%);
+  --cupid-gradient-dark: linear-gradient(135deg, #1a1033 0%, #2d1b4e 50%, #1e1538 100%);
+  --cupid-gradient-mesh: radial-gradient(at 15% 25%, rgba(196, 78, 200, 0.07), transparent 50%),
+    radial-gradient(at 85% 75%, rgba(255, 107, 157, 0.05), transparent 50%),
+    radial-gradient(at 50% 50%, rgba(139, 92, 246, 0.04), transparent 60%);
 
   /* 中性色 */
-  --cupid-text: #2f2f3e;
-  --cupid-text-secondary: #6b6b7b;
-  --cupid-text-muted: #a0a0b0;
-  --cupid-border: #f0e3e7;
-  --cupid-bg-page: #f7f5f9;
+  --cupid-text: #1e1530;
+  --cupid-text-secondary: #5a5070;
+  --cupid-text-muted: #9890b0;
+  --cupid-border: #ece8f2;
+  --cupid-border-light: #f5f3f8;
+  --cupid-bg-page: #f7f4fb;
   --cupid-bg-card: #ffffff;
-  --cupid-bg-hover: rgba(255, 90, 122, 0.06);
+  --cupid-bg-glass: rgba(255, 255, 255, 0.72);
+  --cupid-bg-hover: rgba(196, 78, 200, 0.06);
 
   /* 圆角 */
-  --cupid-radius-sm: 8px;
-  --cupid-radius: 12px;
-  --cupid-radius-lg: 16px;
-  --cupid-radius-xl: 20px;
+  --cupid-radius-xs: 6px;
+  --cupid-radius-sm: 10px;
+  --cupid-radius: 14px;
+  --cupid-radius-lg: 18px;
+  --cupid-radius-xl: 24px;
 
   /* 阴影 */
-  --cupid-shadow-sm: 0 2px 8px rgba(255, 90, 122, 0.06);
-  --cupid-shadow: 0 6px 24px rgba(255, 90, 122, 0.10);
-  --cupid-shadow-lg: 0 12px 40px rgba(255, 90, 122, 0.14);
-  --cupid-shadow-xl: 0 20px 60px rgba(255, 90, 122, 0.18);
+  --cupid-shadow-xs: 0 1px 3px rgba(30, 21, 48, 0.04);
+  --cupid-shadow-sm: 0 2px 8px rgba(30, 21, 48, 0.06), 0 1px 2px rgba(196, 78, 200, 0.04);
+  --cupid-shadow: 0 4px 20px rgba(30, 21, 48, 0.08), 0 2px 6px rgba(196, 78, 200, 0.06);
+  --cupid-shadow-lg: 0 12px 40px rgba(30, 21, 48, 0.10), 0 4px 12px rgba(196, 78, 200, 0.08);
+  --cupid-shadow-xl: 0 20px 60px rgba(30, 21, 48, 0.12), 0 8px 24px rgba(196, 78, 200, 0.10);
+
+  /* 玻璃效果 */
+  --cupid-glass-blur: blur(16px);
+  --cupid-glass-border: rgba(255, 255, 255, 0.5);
 
   /* 过渡 */
-  --cupid-transition: 0.25s ease;
-  --cupid-transition-slow: 0.4s ease;
+  --cupid-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --cupid-transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  --cupid-transition-bounce: 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 全局基础 */
@@ -56,6 +72,7 @@ html {
 body {
   margin: 0;
   background: var(--cupid-bg-page);
+  background-image: var(--cupid-gradient-mesh);
   color: var(--cupid-text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
@@ -91,12 +108,12 @@ a {
 }
 
 a:hover {
-  color: #ff7a98;
+  color: var(--cupid-accent);
 }
 
 /* 选中文字 */
 ::selection {
-  background: rgba(255, 90, 122, 0.15);
+  background: rgba(196, 78, 200, 0.15);
   color: var(--cupid-text);
 }
 
@@ -106,22 +123,22 @@ a:hover {
 .ant-btn-primary {
   background: var(--cupid-gradient);
   border: none;
-  box-shadow: 0 4px 12px rgba(255, 90, 122, 0.25);
+  box-shadow: 0 4px 12px rgba(196, 78, 200, 0.25);
   font-weight: 500;
   letter-spacing: 0.3px;
 }
 
 .ant-btn-primary:hover,
 .ant-btn-primary:focus {
-  background: linear-gradient(135deg, #ff7a98 0%, #ffa066 100%) !important;
+  background: linear-gradient(135deg, #d05fd4 0%, #ff7ba8 50%, #ffb07a 100%) !important;
   border: none !important;
-  box-shadow: 0 6px 16px rgba(255, 90, 122, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(196, 78, 200, 0.35) !important;
   transform: translateY(-1px);
 }
 
 .ant-btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(255, 90, 122, 0.25) !important;
+  box-shadow: 0 2px 8px rgba(196, 78, 200, 0.25) !important;
 }
 
 /* 默认按钮 */
@@ -214,12 +231,12 @@ a:hover {
 .ant-input-affix-wrapper-focused,
 .ant-picker-focused {
   border-color: var(--cupid-primary) !important;
-  box-shadow: 0 0 0 2px rgba(255, 90, 122, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(196, 78, 200, 0.15) !important;
 }
 
 .ant-input:hover,
 .ant-select:hover .ant-select-selector {
-  border-color: rgba(255, 90, 122, 0.4) !important;
+  border-color: rgba(196, 78, 200, 0.4) !important;
 }
 
 /* 输入框包裹 */
@@ -246,6 +263,11 @@ a:hover {
 /* 徽章 */
 .ant-badge-count {
   box-shadow: 0 0 0 1px #fff, 0 0 0 2px var(--cupid-primary) !important;
+}
+
+/* 滑块手柄焦点 */
+.ant-slider-handle:focus {
+  box-shadow: 0 0 0 4px rgba(196, 78, 200, 0.15) !important;
 }
 
 /* 提醒 */
@@ -410,7 +432,7 @@ a:hover {
 
 .ant-tree-treenode-selected > div > .ant-tree-title {
   color: var(--cupid-primary);
-  background: rgba(255, 90, 122, 0.06);
+  background: rgba(196, 78, 200, 0.06);
 }
 
 /* 导航 */
@@ -450,18 +472,18 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 90, 122, 0.25);
+  background: rgba(196, 78, 200, 0.25);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 90, 122, 0.45);
+  background: rgba(196, 78, 200, 0.45);
 }
 
 /* Firefox 滚动条 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 90, 122, 0.25) transparent;
+  scrollbar-color: rgba(196, 78, 200, 0.25) transparent;
 }
 
 /* ========== 页面淡入动画 ========== */
@@ -529,10 +551,10 @@ a:hover {
 /* ========== 呼吸光晕 ========== */
 @keyframes cupid-glow {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(255, 90, 122, 0.15);
+    box-shadow: 0 0 8px rgba(196, 78, 200, 0.15);
   }
   50% {
-    box-shadow: 0 0 20px rgba(255, 90, 122, 0.3);
+    box-shadow: 0 0 20px rgba(196, 78, 200, 0.3);
   }
 }
 
@@ -555,6 +577,14 @@ a:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ========== 玻璃效果工具类 ========== */
+.cupid-glass {
+  background: var(--cupid-bg-glass);
+  backdrop-filter: var(--cupid-glass-blur);
+  -webkit-backdrop-filter: var(--cupid-glass-blur);
+  border: 1px solid var(--cupid-glass-border);
 }
 
 /* ========== 响应式辅助 ========== */

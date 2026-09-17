@@ -50,4 +50,7 @@ public class SysUser implements Serializable {
     private Date createdAt;
 
     private Date updatedAt;
+
+    /** 用户偏好的 TTS 音色 ID */
+    private String preferredVoice;
 }

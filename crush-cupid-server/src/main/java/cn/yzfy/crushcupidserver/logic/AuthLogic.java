@@ -3,7 +3,6 @@ package cn.yzfy.crushcupidserver.logic;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.RandomUtil;
-import cn.hutool.core.util.NumberUtil;
 import cn.yzfy.crushcupidserver.exception.BizException;
 import cn.yzfy.crushcupidserver.model.converter.UserConverter;
 import cn.yzfy.crushcupidserver.model.dto.ChangePasswordDTO;
@@ -21,6 +20,7 @@ import cn.yzfy.crushcupidserver.security.EmailSender;
 import cn.yzfy.crushcupidserver.service.SysEmailCodeService;
 import cn.yzfy.crushcupidserver.service.SysRbacService;
 import cn.yzfy.crushcupidserver.service.SysUserService;
+import cn.yzfy.crushcupidserver.service.CaptchaService;
 import cn.yzfy.crushcupidserver.service.redis.RedisSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -72,6 +72,7 @@ public class AuthLogic {
     private final CryptoHelper cryptoHelper;
     private final EmailSender emailSender;
     private final RedisSupport redisSupport;
+    private final CaptchaService captchaService;
 
     /** 验证码重发间隔（秒），取自 crush.email-code.resend-interval-seconds */
     @Value("${crush.email-code.resend-interval-seconds:60}")
@@ -95,7 +96,7 @@ public class AuthLogic {
             if (!redisSupport.tryAcquire(rateKey, 3600L, EMAIL_CODE_PER_HOUR)) {
                 throw BizException.authError(1, "该邮箱发送过于频繁，请稍后再试");
             }
-            String code = RandomUtil.randomNumbers(6);
+            String code = RandomUtil.randomString(6);
             String hash = cryptoHelper.sha256(code);
             redisSupport.emailStoreCode(email, purpose, hash, CODE_TTL_MS / 1000);
             redisSupport.emailMarkSent(email, purpose, resendIntervalSeconds);
@@ -108,7 +109,7 @@ public class AuthLogic {
             throw BizException.authError(1, "操作太频繁，请 " + resendIntervalSeconds + " 秒后再试");
         }
         invalidateOldCodes(email, purpose);
-        String code = RandomUtil.randomNumbers(6);
+        String code = RandomUtil.randomString(6);
         SysEmailCode record = new SysEmailCode();
         record.setEmail(email);
         record.setPurpose(purpose);
@@ -121,7 +122,7 @@ public class AuthLogic {
         emailSender.send(email, code, purpose);
     }
 
-    /** 注册：校验验证码 → 创建用户 → 自动登录 */
+    /** 注册：校验邮箱验证码 → 创建用户 → 自动登录 */
     public LoginVO register(RegisterDTO dto) {
         String email = normalizeEmail(dto.getEmail());
         if (sysUserService.getByEmail(email) != null) {
@@ -129,11 +130,10 @@ public class AuthLogic {
         }
         validatePassword(dto.getPassword());
         verifyCode(email, EmailCodePurpose.REGISTER.name(), dto.getCode());
-
         this.invalidateOldCodes(email, EmailCodePurpose.REGISTER.name());
         SysUser user = new SysUser();
         user.setEmail(email);
-        user.setUsername(email.substring(0, email.indexOf('@')));
+        user.setUsername(StrUtil.blankToDefault(dto.getUsername(), email.substring(0, email.indexOf('@'))).trim());
         user.setPasswordHash(cryptoHelper.encodePassword(dto.getPassword()));
         user.setStatus(1);
         user.setEmailVerified(true);
@@ -162,8 +162,12 @@ public class AuthLogic {
         return loginVO;
     }
 
-    /** 邮箱登录 */
+    /** 邮箱登录（前置图形验证码 → 密码校验） */
     public LoginVO login(LoginDTO dto) {
+        // 图形验证码：单次使用，失败即作废，需重新获取
+        if (!captchaService.verify(dto.getCaptchaId(), dto.getCaptcha())) {
+            throw BizException.authError(3, "验证码错误");
+        }
         String email = normalizeEmail(dto.getEmail());
         // Redis 启用：单邮箱+IP 每分钟限流，防暴破
         if (redisSupport.isEnabled()
@@ -182,10 +186,6 @@ public class AuthLogic {
         if (!cryptoHelper.matchesPassword(dto.getPassword(), user.getPasswordHash())) {
             recordFailedAttempt(user);
             throw BizException.authError(3, "邮箱或密码错误");
-        }
-        // 验证码校验（若前端传入了验证码）
-        if (StrUtil.isNotBlank(dto.getCode())) {
-            verifyCode(email, EmailCodePurpose.LOGIN.name(), dto.getCode());
         }
         // 登录成功：清除失败计数与锁定
         if (redisSupport.isEnabled()) {
@@ -276,7 +276,7 @@ public class AuthLogic {
 
     /** 使用并校验验证码（成功则整条记录标记已用，失败累计） */
     private void verifyCode(String email, String purpose, String code) {
-        if (StrUtil.isBlank(code) || !NumberUtil.isInteger(code) || code.length() != 6) {
+        if (StrUtil.isBlank(code) || code.length() < 4 || code.length() > 8 || !code.matches("[A-Za-z0-9]+")) {
             throw BizException.authError(3, "验证码错误");
         }
         // Redis 启用：从 Redis 取验证码校验

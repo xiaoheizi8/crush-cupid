@@ -1,6 +1,6 @@
 
 <template>
-  <PageContainer icon="👤" title="用户中心" subtitle="我的资料 · 配额 · 账号安全">
+  <PageContainer icon="👤" :title="t('user.title')" subtitle="我的资料 · 配额 · 账号安全">
     <div class="user-page">
       <a-row :gutter="20" class="user-row">
         <a-col :span="8">
@@ -17,14 +17,14 @@
               ⏳ 邮箱未验证
             </div>
             <div class="profile-card__joined">
-              注册时间：{{ user?.createdAt ? user.createdAt.slice(0, 10) : '-' }}
+              {{ t('user.memberSince') }}：{{ user?.createdAt ? user.createdAt.slice(0, 10) : '-' }}
             </div>
-            <a-button class="profile-card__btn" @click="handleLogout">登出</a-button>
+            <a-button class="profile-card__btn" @click="handleLogout">{{ t('common.logout') }}</a-button>
           </div>
         </a-col>
 
         <a-col :span="16">
-          <a-card class="quota-card" title="📊 我的配额">
+          <a-card class="quota-card" :title="'📊 ' + t('user.quota')">
             <a-row :gutter="16">
               <a-col :span="6">
                 <div class="quota-item">
@@ -41,26 +41,26 @@
               <a-col :span="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.todayMessageCount || 0 }}</div>
-                  <div class="quota-item__label">今日已用</div>
+                  <div class="quota-item__label">{{ t('user.used') }}</div>
                 </div>
               </a-col>
               <a-col :span="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.plan || '—' }}</div>
-                  <div class="quota-item__label">当前套餐</div>
+                  <div class="quota-item__label">{{ t('user.plan') }}</div>
                 </div>
               </a-col>
             </a-row>
           </a-card>
 
-          <a-card class="profile-form-card" title="✏️ 编辑资料">
+          <a-card class="profile-form-card" :title="'✏️ ' + t('user.editProfile')">
             <a-form :model="profileForm" layout="vertical" @finish="handleUpdateProfile">
               <a-form-item label="用户名">
                 <a-input v-model:value="profileForm.username" />
               </a-form-item>
               <a-form-item>
                 <a-button type="primary" html-type="submit" :loading="saving">
-                  保存修改
+                  {{ t('common.save') }}
                 </a-button>
               </a-form-item>
             </a-form>
@@ -73,10 +73,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
 import { myProfile, myQuota, updateProfile, logout } from '@/api'
 import { useRouter } from 'vue-router'
 
+const { t } = useI18n()
 const router = useRouter()
 const user = ref<{ username: string; email: string; emailVerified: boolean; createdAt: string } | null>(null)
 const quota = ref<{ plan: string; crushLimit: number; dailyChatLimit: number; todayMessageCount: number; crushCount: number } | null>(null)
@@ -115,7 +117,7 @@ async function handleLogout() {
     await logout()
   } catch { /* ignore */ }
   localStorage.removeItem('satoken')
-  message.success('已登出')
+  message.success(t('common.logoutSuccess'))
   router.push('/login')
 }
 

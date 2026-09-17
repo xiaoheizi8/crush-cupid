@@ -1,7 +1,7 @@
 
 <template>
-  <PageContainer icon="📊" title="关系报告详情" :subtitle="report?.title || '加载中...'">
-    <div v-if="loading" class="loading">加载中...</div>
+  <PageContainer icon="📊" :title="t('report.title')" :subtitle="report?.title || t('common.loading')">
+    <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="report" class="report-page">
       <a-card class="report-card">
         <template #extra>
@@ -9,9 +9,9 @@
         </template>
         <div class="report-meta">
           <span>对象：{{ report.crushName }}</span>
-          <span>报告日期：{{ report.reportDate }}</span>
+          <span>{{ t('report.date') }}：{{ report.reportDate }}</span>
           <span>来源：{{ report.source }}</span>
-          <span>创建时间：{{ report.createdAt?.slice(0, 10) }}</span>
+          <span>{{ t('common.createdAt') }}：{{ report.createdAt?.slice(0, 10) }}</span>
         </div>
         <div v-if="report.title" class="report-title">{{ report.title }}</div>
         <div v-if="report.markdown" class="report-content" style="white-space: pre-line;">
@@ -26,10 +26,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { getReportDetail, downloadSavedReport } from '@/api'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const report = ref<any>(null)

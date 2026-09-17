@@ -21,4 +21,7 @@ public class UserVO {
     private Boolean emailVerified;
 
     private Date createdAt;
+
+    /** 用户偏好的 TTS 音色 ID */
+    private String preferredVoice;
 }

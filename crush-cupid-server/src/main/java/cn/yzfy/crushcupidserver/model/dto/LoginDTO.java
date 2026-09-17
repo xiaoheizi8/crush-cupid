@@ -14,6 +14,9 @@ public class LoginDTO {
     /** 密码 */
     private String password;
 
-    /** 邮箱验证码 */
-    private String code;
+    /** 图形验证码实例 ID（由 GET /api/auth/captcha 获取） */
+    private String captchaId;
+
+    /** 图形验证码输入 */
+    private String captcha;
 }

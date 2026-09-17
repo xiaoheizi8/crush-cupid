@@ -7,8 +7,10 @@ import cn.yzfy.crushcupidserver.model.dto.EmailCodeDTO;
 import cn.yzfy.crushcupidserver.model.dto.LoginDTO;
 import cn.yzfy.crushcupidserver.model.dto.RegisterDTO;
 import cn.yzfy.crushcupidserver.model.dto.ResetPasswordDTO;
+import cn.yzfy.crushcupidserver.model.vo.CaptchaVO;
 import cn.yzfy.crushcupidserver.model.vo.LoginVO;
 import cn.yzfy.crushcupidserver.model.vo.UserVO;
+import cn.yzfy.crushcupidserver.service.CaptchaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +27,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthLogic authLogic;
+    private final CaptchaService captchaService;
+
+    /** 图形验证码（登录前置，可点击刷新） */
+    @GetMapping("/captcha")
+    public Result<CaptchaVO> captcha() {
+        return Result.ok(captchaService.generate());
+    }
 
     /** 发送邮箱验证码 */
     @PostMapping("/email-code")

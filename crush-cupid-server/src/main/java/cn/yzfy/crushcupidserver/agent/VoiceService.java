@@ -17,6 +17,7 @@ import reactor.core.publisher.Flux;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,6 +42,8 @@ public class VoiceService {
     private static final String WEBSOCKET_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference";
     /** 声音设计（voice-enrollment）接口地址 */
     private static final String VOICE_DESIGN_URL = BASE_URL + "/api/v1/services/audio/tts/customization";
+    /** 在线模型列表接口地址 */
+    private static final String ONLINE_MODELS_URL = BASE_URL + "/api/v1/services/audio/tts/online_models";
 
     @Value("${spring.ai.dashscope.api-key:}")
     private String apiKey;
@@ -58,6 +61,8 @@ public class VoiceService {
 
     /** 声音设计 REST 客户端 */
     private RestClient designClient;
+    /** 在线模型列表 REST 客户端 */
+    private RestClient modelsClient;
 
     public VoiceService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
@@ -77,6 +82,10 @@ public class VoiceService {
                     .build();
             this.designClient = RestClient.builder()
                     .baseUrl(VOICE_DESIGN_URL)
+                    .defaultHeader("Authorization", "Bearer " + apiKey)
+                    .build();
+            this.modelsClient = RestClient.builder()
+                    .baseUrl(BASE_URL)
                     .defaultHeader("Authorization", "Bearer " + apiKey)
                     .build();
             log.info("CosyVoice 语音合成就绪：model={}，默认音色={}", defaultModel, StrUtil.blankToDefault(defaultVoice, "未配置"));
@@ -211,6 +220,86 @@ public class VoiceService {
         }
         return null;
     }
+
+    /**
+     * 获取所有可用的 TTS 模型列表。
+     */
+    public List<Map<String, Object>> listAvailableModels() {
+        if (modelsClient == null) {
+            throw BizException.badRequest("语音服务不可用：未配置 DASHSCOPE_API_KEY");
+        }
+        try {
+            String resp = modelsClient.get()
+                    .uri("/api/v1/services/audio/tts/online_models")
+                    .retrieve()
+                    .body(String.class);
+            JsonNode root = objectMapper.readTree(resp);
+            JsonNode modelsNode = root.path("output").path("models");
+            if (modelsNode.isMissingNode() || !modelsNode.isArray()) {
+                return List.of();
+            }
+            List<Map<String, Object>> models = new java.util.ArrayList<>();
+            for (JsonNode modelNode : modelsNode) {
+                String modelName = modelNode.path("name").asText("");
+                if (modelName.startsWith("cosyvoice")) {
+                    Map<String, Object> model = Map.of(
+                            "name", modelName,
+                            "displayName", modelNode.path("display_name").asText(modelName),
+                            "voices", extractVoices(modelNode));
+                    models.add(model);
+                }
+            }
+            return models;
+        } catch (Exception e) {
+            log.warn("获取在线模型列表失败：{}", e.getMessage());
+            // 降级：返回本地配置的默认模型
+            return List.of(Map.of(
+                    "name", defaultModel,
+                    "displayName", defaultModel,
+                    "voices", List.of()
+            ));
+        }
+    }
+
+    /**
+     * 获取指定模型的可用音色列表。
+     */
+    public List<Map<String, Object>> listVoices(String model) {
+        List<Map<String, Object>> models = listAvailableModels();
+        for (Map<String, Object> m : models) {
+            if (model.equals(m.get("name"))) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> voices = (List<Map<String, Object>>) m.get("voices");
+                return voices != null ? voices : List.of();
+            }
+        }
+        return List.of();
+    }
+
+    /** 从模型节点中提取音色列表 */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractVoices(JsonNode modelNode) {
+        List<Map<String, Object>> voices = new java.util.ArrayList<>();
+        JsonNode voicesNode = modelNode.path("voices");
+        if (voicesNode.isMissingNode() || !voicesNode.isArray()) {
+            return voices;
+        }
+        for (JsonNode v : voicesNode) {
+            Map<String, Object> voice = Map.of(
+                    "voiceId", v.path("name").asText(""),
+                    "name", v.path("display_name").asText(v.path("name").asText("")),
+                    "gender", v.path("gender").asText(""),
+                    "model", modelNode.path("name").asText(""));
+            voices.add(voice);
+        }
+        return voices;
+    }
+
+    /** 默认模型名 */
+    public String getDefaultModel() { return defaultModel; }
+
+    /** 默认音色 ID */
+    public String getDefaultVoice() { return defaultVoice; }
 
     private byte[] toBytes(ByteBuffer buffer) {
         byte[] bytes = new byte[buffer.remaining()];

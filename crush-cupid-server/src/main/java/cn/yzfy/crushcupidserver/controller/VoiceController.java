@@ -2,37 +2,30 @@ package cn.yzfy.crushcupidserver.controller;
 
 import cn.yzfy.crushcupidserver.agent.VoiceService;
 import cn.yzfy.crushcupidserver.common.Result;
+import cn.yzfy.crushcupidserver.logic.AuthLogic;
+import cn.yzfy.crushcupidserver.model.dto.VoiceConfigDTO;
 import cn.yzfy.crushcupidserver.model.dto.VoiceDesignDTO;
 import cn.yzfy.crushcupidserver.model.dto.VoiceRequestDTO;
+import cn.yzfy.crushcupidserver.model.entity.SysUser;
+import cn.yzfy.crushcupidserver.model.vo.UserVO;
+import cn.yzfy.crushcupidserver.model.vo.VoiceConfigVO;
+import cn.yzfy.crushcupidserver.service.SysUserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
 
-/**
- * @className VoiceController
- * @description 语音接口：合成（文本 -> mp3 base64）与声音设计（描述 -> 专属音色 voice_id）。
- * 前端把 crush 某条 assistant 消息文本 POST 过来合成 mp3，解码后 Blob URL 播放；
- * 创建 crush 时可用人设描述调声音设计生成专属声线。
- * <p>
- * 统一用项目封装的 {@link Result}，避免裸 ResponseEntity。
- * @author 一朝风月
- * @code controller
- * @createTime 2026-08-26
- */
 @RestController
 @RequestMapping("/api/chat/voice")
 @RequiredArgsConstructor
 public class VoiceController {
 
     private final VoiceService voiceService;
+    private final AuthLogic authLogic;
+    private final SysUserService sysUserService;
 
-    /**
-     * 合成语音消息。返回的 data 是 base64 编码的 mp3。
-     */
     @PostMapping
     public Result<String> synthesize(@RequestBody VoiceRequestDTO dto) {
         byte[] audio = voiceService.synthesize(dto.getText(), dto.getVoice());
@@ -40,11 +33,50 @@ public class VoiceController {
         return Result.ok(base64);
     }
 
-    /**
-     * 声音设计：用自然语言描述创建 CosyVoice v3.5 专属音色，返回 voice_id。
-     */
     @PostMapping("/design")
     public Result<String> design(@RequestBody VoiceDesignDTO dto) {
         return Result.ok(voiceService.designVoice(dto.getVoicePrompt(), dto.getPreviewText()));
+    }
+
+    @GetMapping("/models")
+    public Result<List<Map<String, Object>>> listModels() {
+        return Result.ok(voiceService.listAvailableModels());
+    }
+
+    @GetMapping("/voices")
+    public Result<List<Map<String, Object>>> listVoices(
+            @RequestParam(value = "model", required = false) String model) {
+        return Result.ok(voiceService.listVoices(model));
+    }
+
+    @GetMapping("/config")
+    public Result<VoiceConfigVO> getConfig() {
+        UserVO user = authLogic.me();
+        long userId = user.getId();
+        VoiceConfigVO vo = buildConfig(userId);
+        vo.setCurrentVoice(user.getPreferredVoice());
+        return Result.ok(vo);
+    }
+
+    @PostMapping("/config")
+    public Result<VoiceConfigVO> saveConfig(@RequestBody VoiceConfigDTO dto) {
+        long userId = authLogic.me().getId();
+        SysUser user = sysUserService.getById(userId);
+        if (user != null) {
+            user.setPreferredVoice(dto.getPreferredVoice());
+            user.setUpdatedAt(new java.util.Date());
+            sysUserService.updateById(user);
+        }
+        VoiceConfigVO vo = buildConfig(userId);
+        vo.setCurrentVoice(dto.getPreferredVoice());
+        return Result.ok(vo);
+    }
+
+    private VoiceConfigVO buildConfig(long userId) {
+        VoiceConfigVO vo = new VoiceConfigVO();
+        vo.setCurrentModel(voiceService.getDefaultModel());
+        vo.setCurrentVoice(voiceService.getDefaultVoice());
+        vo.setAvailableModels(voiceService.listAvailableModels());
+        return vo;
     }
 }

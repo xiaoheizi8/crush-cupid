@@ -17,10 +17,10 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (resp) => resp,
   (err) => {
-    const msg = err?.response?.data?.message || err?.message || 'ÇëÇóÊ§°Ü'
+    const msg = err?.response?.data?.message || err?.message || 'è¯·æ±‚å¤±è´¥'
     message.error(msg)
     return Promise.reject(err)
   },
 )
 
-export default http
+export default http

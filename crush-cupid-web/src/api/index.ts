@@ -6,6 +6,7 @@ import type {
   BuildEvent,
   ChatHistoryVO,
   ChatMedia,
+  CaptchaVO,
   Crush,
   CrushCreatePayload,
   CrushReport,
@@ -383,6 +384,11 @@ export async function login(payload: LoginDTO): Promise<LoginVO> {
   return unwrap(http.post<Result<LoginVO>>('/auth/login', payload))
 }
 
+/** 图形验证码（登录前置） */
+export async function getCaptcha(): Promise<CaptchaVO> {
+  return unwrap(http.get<Result<CaptchaVO>>('/auth/captcha'))
+}
+
 /** 登出 */
 export async function logout(): Promise<void> {
   await unwrap(http.post<Result<void>>('/auth/logout'))
@@ -411,4 +417,35 @@ export async function myProfile(): Promise<UserVO> {
 /** 我的配额 */
 export async function myQuota(): Promise<MyQuotaVO> {
   return unwrap(http.get<Result<MyQuotaVO>>('/user/quota'))
+}
+
+/** 语音合成 */
+export async function synthesize(payload: { text: string; voice?: string }): Promise<string> {
+  return unwrap(http.post<Result<string>>('/chat/voice', payload))
+}
+
+/** 获取可用模型列表 */
+export async function listModels(): Promise<any[]> {
+  return unwrap(http.get<Result<any[]>>('/chat/voice/models'))
+}
+
+/** 获取音色列表 */
+export async function listVoices(model?: string): Promise<any[]> {
+  const params = model ? { model } : {}
+  return unwrap(http.get<Result<any[]>>('/chat/voice/voices', { params }))
+}
+
+/** 获取音色配置 */
+export async function getVoiceConfig(): Promise<VoiceConfigVO> {
+  return unwrap(http.get<Result<VoiceConfigVO>>('/chat/voice/config'))
+}
+
+/** 保存音色配置 */
+export async function saveVoiceConfig(payload: { preferredVoice: string }): Promise<VoiceConfigVO> {
+  return unwrap(http.post<Result<VoiceConfigVO>>('/chat/voice/config', payload))
+}
+
+/** 创建专属音色 */
+export async function designVoice(voicePrompt: string, previewText?: string): Promise<string> {
+  return unwrap(http.post<Result<string>>('/chat/voice/design', { voicePrompt, previewText }))
 }

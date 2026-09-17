@@ -491,7 +491,7 @@ public class ChatFragment extends Fragment {
 
     private void speak(String text) {
         Ui.toast(requireContext(), "TA 正在开口…");
-        VoiceApi.synthesize(text, null, new Rest.Callback<String>() {
+        VoiceApi.synthesize(text, VoiceApi.cachedVoice(), new Rest.Callback<String>() {
             @Override
             public void ok(String base64) {
                 playMp3(base64);

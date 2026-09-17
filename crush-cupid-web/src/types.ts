@@ -195,6 +195,30 @@ export interface LoginVO {
 export interface LoginDTO {
   email: string
   password: string
+  captchaId?: string
+  captcha?: string
+}
+
+/** 图形验证码（登录前置，点击刷新） */
+export interface CaptchaVO {
+  captchaId: string
+  image: string
+}
+
+/** 音色配置 */
+export interface VoiceConfigVO {
+  currentVoice: string
+  currentModel: string
+  availableModels: Array<{
+    name: string
+    displayName: string
+    voices: Array<{
+      voiceId: string
+      name: string
+      gender: string
+      model: string
+    }>
+  }>
 }
 
 /** 注册参数 */
@@ -202,6 +226,7 @@ export interface RegisterDTO {
   email: string
   password: string
   username?: string
+  code?: string
 }
 
 /** 更新资料参数 */
