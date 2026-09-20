@@ -14,6 +14,7 @@ import cn.yzfy.crushcupidserver.skill.SkillCatalogService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CrushBuildService {
 
     private static final String SYSTEM_TEMPLATE = """
@@ -194,7 +196,8 @@ public class CrushBuildService {
         try {
             return objectMapper.readTree(extracted);
         } catch (Exception e) {
-            throw new BizException("解析模型输出失败：" + e.getMessage());
+            log.warn("解析模型输出失败：{}", e.getMessage());
+            throw new BizException("构建失败，请稍后再试");
         }
     }
 

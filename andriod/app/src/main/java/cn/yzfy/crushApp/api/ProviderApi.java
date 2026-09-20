@@ -19,18 +19,18 @@ public final class ProviderApi {
     }
 
     public static void list(Rest.Callback<List<AiProvider>> cb) {
-        Rest.get("/api/ai-provider", LIST, cb);
+        Rest.get("/api/provider", LIST, cb);
     }
 
     public static void create(AiProvider p, Rest.Callback<AiProvider> cb) {
-        Rest.post("/api/ai-provider", p, ONE, cb);
+        Rest.post("/api/provider", p, ONE, cb);
     }
 
     public static void update(long id, AiProvider p, Rest.Callback<AiProvider> cb) {
-        Rest.put("/api/ai-provider/" + id, p, ONE, cb);
+        Rest.put("/api/provider/" + id, p, ONE, cb);
     }
 
     public static void delete(long id, Rest.Callback<Void> cb) {
-        Rest.delete("/api/ai-provider/" + id, cb);
+        Rest.delete("/api/provider/" + id, cb);
     }
 }

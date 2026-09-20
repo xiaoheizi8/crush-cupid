@@ -16,14 +16,17 @@ public class MainActivity extends AppCompatActivity {
         AppPrefs.init(this);
         setContentView(R.layout.activity_main);
         if (savedInstanceState == null) {
+            int enter = R.anim.fade_scale_in;
             if (AuthApi.isLoggedIn()) {
                 getSupportFragmentManager()
                         .beginTransaction()
+                        .setCustomAnimations(enter, 0)
                         .replace(R.id.fragment_container, new HomeFragment())
                         .commit();
             } else {
                 getSupportFragmentManager()
                         .beginTransaction()
+                        .setCustomAnimations(enter, 0)
                         .replace(R.id.fragment_container, new cn.yzfy.crushApp.ui.LoginFragment())
                         .commit();
             }

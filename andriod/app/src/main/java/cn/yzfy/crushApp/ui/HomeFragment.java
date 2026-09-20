@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -38,6 +39,9 @@ public class HomeFragment extends Fragment {
     private final List<Crush> items = new ArrayList<>();
     private HomeAdapter adapter;
     private TextView empty;
+    private boolean animatedOnce;
+    private RecyclerView list;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh;
 
     @Nullable
     @Override
@@ -76,14 +80,19 @@ public class HomeFragment extends Fragment {
         subtitle.setLayoutParams(slp);
         header.addView(subtitle);
 
-        // 快捷入口
+        // 快捷入口（可横滑，避免小屏溢出）
+        HorizontalScrollView quickScroll = new HorizontalScrollView(requireContext());
+        quickScroll.setHorizontalScrollBarEnabled(false);
+        quickScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout.LayoutParams qslp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        qslp.topMargin = Ui.dp(requireContext(), 12);
+        quickScroll.setLayoutParams(qslp);
+
         LinearLayout quick = new LinearLayout(requireContext());
         quick.setOrientation(LinearLayout.HORIZONTAL);
-        LinearLayout.LayoutParams qlp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        qlp.topMargin = Ui.dp(requireContext(), 12);
-        quick.setLayoutParams(qlp);
-        header.addView(quick);
+        quickScroll.addView(quick);
+        header.addView(quickScroll);
         quick.addView(quickChip("🤵 军师", () -> Nav.push(requireActivity(), AdvisorFragment.class, null)));
         quick.addView(quickChip("📦 技能包", () -> Nav.push(requireActivity(), SkillCatalogFragment.class, null)));
         quick.addView(quickChip("🧠 模型", () -> Nav.push(requireActivity(), ProviderFragment.class, null)));
@@ -91,14 +100,19 @@ public class HomeFragment extends Fragment {
         quick.addView(quickChip("🚪 登出", this::logout));
 
         // 列表
-        RecyclerView list = new RecyclerView(requireContext());
+        list = new RecyclerView(requireContext());
         FrameLayout.LayoutParams llp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         list.setLayoutParams(llp);
         list.setLayoutManager(new LinearLayoutManager(requireContext()));
         adapter = new HomeAdapter();
         list.setAdapter(adapter);
-        col.addView(list);
+        // 下拉刷新
+        refresh = Ui.pullRefresh(requireContext(), list, this::load);
+        FrameLayout.LayoutParams rlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        refresh.setLayoutParams(rlp);
+        col.addView(refresh);
 
         // 空态
         empty = new TextView(requireContext());
@@ -123,7 +137,13 @@ public class HomeFragment extends Fragment {
         flp.setMargins(0, 0, Ui.dp(requireContext(), 20), Ui.dp(requireContext(), 28));
         fab.setLayoutParams(flp);
         fab.setOnClickListener(v -> Nav.push(requireActivity(), CrushEditFragment.class, null));
+        fab.setScaleX(0f);
+        fab.setScaleY(0f);
         root.addView(fab);
+
+        Ui.listEnter(list, R.anim.layout_list);
+        fab.animate().scaleX(1f).scaleY(1f).setStartDelay(180).setDuration(320)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(1.4f)).start();
 
         return root;
     }
@@ -159,6 +179,7 @@ public class HomeFragment extends Fragment {
         lp.rightMargin = Ui.dp(requireContext(), 8);
         t.setLayoutParams(lp);
         t.setOnClickListener(v -> action.run());
+        Ui.pressScale(t);
         return t;
     }
 
@@ -167,8 +188,16 @@ public class HomeFragment extends Fragment {
             items.clear();
             if (list != null) items.addAll(list);
             adapter.notifyDataSetChanged();
+            if (!animatedOnce) {
+                animatedOnce = true;
+                this.list.scheduleLayoutAnimation();
+            }
             empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
-        }, e -> Ui.toast(requireContext(), e, true)));
+            if (refresh != null) refresh.setRefreshing(false);
+        }, e -> {
+            if (refresh != null) refresh.setRefreshing(false);
+            Ui.toast(requireContext(), e, true);
+        }));
     }
 
     /** 登出：走服务端登出，清 token 后回到登录页 */
@@ -266,6 +295,7 @@ public class HomeFragment extends Fragment {
             row.setBackground(Ui.rounded(0xFFFFFFFF, 18));
             row.setElevation(Ui.dp(ctx, 1));
             row.setPadding(pad, Ui.dp(ctx, 14), pad, Ui.dp(ctx, 14));
+            Ui.ripple(row);
 
             RecyclerView.LayoutParams rp = new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

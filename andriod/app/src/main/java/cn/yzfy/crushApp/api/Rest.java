@@ -68,14 +68,13 @@ public final class Rest {
                         }
                     });
                 } catch (Exception e) {
-                    main(() -> cb.fail("解析响应失败：" + e.getMessage()));
+                    main(() -> cb.fail("响应解析失败，请稍后再试"));
                 }
             }
 
             @Override
             public void onFailure(Call call, IOException e) {
-                final String msg = e.getMessage() == null ? "网络错误" : "网络错误：" + e.getMessage();
-                main(() -> cb.fail(msg));
+                main(() -> cb.fail("网络连接失败，请检查网络后重试"));
             }
         });
     }

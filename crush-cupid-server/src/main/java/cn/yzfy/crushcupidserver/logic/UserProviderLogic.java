@@ -63,13 +63,9 @@ public class UserProviderLogic {
         if (entity == null) {
             throw BizException.notFound("未找到你的私有供应商 id=" + id);
         }
-        if (StrUtil.isNotBlank(dto.getProviderKey())
-                && !dto.getProviderKey().equals(entity.getProviderKey())) {
-            AiProvider dup = aiProviderService.getUserPrivateByKey(userId, dto.getProviderKey());
-            if (dup != null && !dup.getId().equals(id)) {
-                throw BizException.badRequest("供应商代号已存在：" + dto.getProviderKey());
-            }
-        }
+        // 私有供应商的 providerKey 不可更改（聊天以 {userId}:{providerKey} 路由引用，
+        // 前端回显的也是该路由代号；改名会造成历史路由失配，约束为创建后固定）。
+        dto.setProviderKey(null);
         applyFields(entity, dto);
         // 仅当提交了新 apiKey 才更新加密 key
         if (StrUtil.isNotBlank(dto.getApiKey())) {

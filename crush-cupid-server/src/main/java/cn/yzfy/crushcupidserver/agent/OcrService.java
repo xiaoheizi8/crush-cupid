@@ -72,7 +72,7 @@ public class OcrService {
                 McpSchema.CallToolResult result = client.callTool(
                         new McpSchema.CallToolRequest(props.getToolName(), Map.of("image", imageRef)));
                 if (Boolean.TRUE.equals(result.isError())) {
-                    throw new BizException("OCR 识别失败：" + result.content());
+                    throw new BizException("OCR 未识别到文字内容");
                 }
                 String text = extractText(result);
                 if (StrUtil.isNotBlank(text)) {
@@ -83,11 +83,11 @@ public class OcrService {
                 throw e;
             } catch (Exception e) {
                 // 单个客户端连接失效时继续尝试下一个
-                lastError = new BizException("OCR 调用失败：" + e.getMessage());
+                lastError = new BizException("OCR 识别失败，请稍后再试");
                 log.warn("MCP OCR 调用失败，尝试下一个客户端：{}", e.getMessage());
             }
         }
-        throw lastError != null ? lastError : new BizException("OCR 调用失败：无可用 MCP 客户端");
+        throw lastError != null ? lastError : new BizException("OCR 识别失败，请稍后再试");
     }
 
     /**

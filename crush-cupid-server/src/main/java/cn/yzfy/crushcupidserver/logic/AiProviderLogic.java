@@ -137,7 +137,7 @@ public class AiProviderLogic {
             chatModelRegistry.reload();
         } catch (IllegalStateException e) {
             log.warn("供应商变更后重建失败：{}", e.getMessage());
-            throw BizException.badRequest(e.getMessage());
+            throw BizException.badRequest("供应商配置有误，请检查 Base URL / 模型名 / Key 后重试");
         }
         chatClientProvider.refresh();
     }

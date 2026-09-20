@@ -19,7 +19,7 @@
         type="info"
         show-icon
         class="provider-alert"
-        message="运行时可增删改自定义大模型供应商，保存后立即生效（无需改配置文件 / 重启）。所有供应商统一走 OpenAI 兼容协议，仅用于文本对话；视觉与语音由系统 yml 配置的模型承担。"
+        message="每位用户独立维护自己的大模型供应商，彼此隔离、互不可见；API Key 加密存储且脱敏展示。保存后立即生效（无需改配置文件 / 重启）。所有供应商统一走 OpenAI 兼容协议，仅用于文本对话；视觉与语音由系统 yml 配置的模型承担。"
       />
 
       <a-table
@@ -38,7 +38,6 @@
               <div class="name-cell__text">
                 <div class="name-cell__name">
                   {{ record.name }}
-                  <a-tag v-if="record.isDefault" color="pink" class="default-tag">默认</a-tag>
                 </div>
                 <div class="name-cell__slug">{{ record.providerKey }}</div>
               </div>
@@ -52,8 +51,6 @@
           </template>
           <template v-if="column.key === 'action'">
             <a-space size="middle">
-              <a v-if="!record.isDefault" class="action-link" @click="setDefault(record)">设为默认</a>
-              <a-divider v-if="!record.isDefault" type="vertical" class="action-divider" />
               <a class="action-link" @click="openEdit(record)">编辑</a>
               <a-divider type="vertical" class="action-divider" />
               <a-popconfirm title="确定删除该供应商？" @confirm="remove(record)">
@@ -220,16 +217,6 @@ async function submit() {
     message.error(e instanceof Error ? e.message : '操作失败')
   } finally {
     saving.value = false
-  }
-}
-
-async function setDefault(p: AiProvider) {
-  try {
-    await updateAiProvider(p.id, { isDefault: true })
-    message.success(`已将「${p.name}」设为默认`)
-    await load()
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '设置失败')
   }
 }
 

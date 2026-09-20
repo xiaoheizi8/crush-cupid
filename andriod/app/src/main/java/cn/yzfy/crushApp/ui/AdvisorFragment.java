@@ -63,6 +63,7 @@ public class AdvisorFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         LinearLayout nc = new LinearLayout(ctx);
         nc.setOrientation(LinearLayout.VERTICAL);
@@ -123,6 +124,7 @@ public class AdvisorFragment extends Fragment {
         send.setGravity(Gravity.CENTER);
         send.setBackground(Ui.rounded(0xFF7256FF, 14));
         send.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 9), Ui.dp(ctx, 16), Ui.dp(ctx, 9));
+        Ui.pressScale(send);
         send.setOnClickListener(v -> {
             String text = input.getText().toString().trim();
             if (!text.isEmpty()) ask(text);
@@ -156,6 +158,7 @@ public class AdvisorFragment extends Fragment {
                     lp.rightMargin = Ui.dp(requireContext(), 8);
                     chip.setLayoutParams(lp);
                     chip.setOnClickListener(v -> invoke(c));
+                    Ui.pressScale(chip);
                     cmdRow.addView(chip);
                 }
             }
@@ -229,6 +232,13 @@ public class AdvisorFragment extends Fragment {
         log.add(line);
         adapter.notifyItemInserted(log.size() - 1);
         scrollBottom();
+        // 新气泡入场微动画
+        if (layoutManager != null && log.size() > 0) {
+            View v = layoutManager.findViewByPosition(log.size() - 1);
+            if (v != null) {
+                Ui.enter(v, R.anim.item_fade_slide);
+            }
+        }
     }
 
     private void flush(StringBuilder sb) {

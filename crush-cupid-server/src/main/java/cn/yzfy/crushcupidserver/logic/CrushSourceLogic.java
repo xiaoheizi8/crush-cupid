@@ -93,7 +93,8 @@ public class CrushSourceLogic {
                 content = readFileContent(file);
             }
         } catch (Exception e) {
-            throw new BizException("解析文件失败：" + e.getMessage());
+            log.warn("解析文件失败：{}", e.getMessage());
+            throw new BizException("解析文件失败，请检查文件格式后重试");
         }
         String fileName = file.getOriginalFilename();
         String rawContent = TextExtractor.sanitize(content);
@@ -216,7 +217,8 @@ public class CrushSourceLogic {
         try {
             return file.getBytes();
         } catch (IOException e) {
-            throw new BizException("读取文件失败：" + e.getMessage());
+            log.warn("读取文件失败：{}", e.getMessage());
+            throw new BizException("读取文件失败，请稍后再试");
         }
     }
 

@@ -102,6 +102,7 @@ public class ChatFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
 
         LinearLayout nameCol = new LinearLayout(ctx);
@@ -136,6 +137,7 @@ public class ChatFragment extends Fragment {
         waitBtn.setBackground(Ui.rounded(0xFFFFF0F3, 16));
         waitBtn.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 6), Ui.dp(ctx, 12), Ui.dp(ctx, 6));
         waitBtn.setOnClickListener(v -> proactive());
+        Ui.pressScale(waitBtn);
         header.addView(waitBtn);
 
         // 消息列表
@@ -198,6 +200,7 @@ public class ChatFragment extends Fragment {
         attachBtn.setBackground(Ui.rounded(0xFFFBF6F7, 14));
         attachBtn.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8));
         attachBtn.setOnClickListener(v -> pickImage());
+        Ui.pressScale(attachBtn);
         row.addView(attachBtn);
 
         input = new EditText(ctx);
@@ -223,6 +226,7 @@ public class ChatFragment extends Fragment {
         sendBtn.setBackground(Ui.rounded(0xFFFF5A7A, 14));
         sendBtn.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 9), Ui.dp(ctx, 16), Ui.dp(ctx, 9));
         sendBtn.setOnClickListener(v -> send());
+        Ui.pressScale(sendBtn);
         row.addView(sendBtn);
         shell.addView(row);
         return shell;
@@ -267,7 +271,7 @@ public class ChatFragment extends Fragment {
             previewLabel.setText(String.format("已选图片（%dKB）", bytes.length / 1024));
             previewRow.setVisibility(View.VISIBLE);
         } catch (Exception e) {
-            Ui.toast(requireContext(), "读取图片失败：" + e.getMessage());
+            Ui.toast(requireContext(), "读取图片失败，请换一张重试");
         }
     }
 
@@ -283,17 +287,19 @@ public class ChatFragment extends Fragment {
             return;
         }
         String text = input.getText().toString().trim();
-        if (text.isEmpty() && pickedBase64 == null) {
+        String imgBase64 = pickedBase64;
+        String imgMime = pickedMime;
+        if (text.isEmpty() && imgBase64 == null) {
             return;
         }
         input.setText("");
         clearPicked();
-        appendMessage(userMsg(text, pickedBase64));
+        appendMessage(userMsg(text, imgBase64, imgMime));
 
         List<ChatRequest.ChatMedia> media = new ArrayList<>();
-        if (pickedBase64 != null) {
-            ChatRequest.ChatMedia m = new ChatRequest.ChatMedia("IMAGE_BASE64", pickedMime, pickedBase64,
-                    System.currentTimeMillis() + ".jpg");
+        if (imgBase64 != null) {
+            ChatRequest.ChatMedia m = new ChatRequest.ChatMedia("IMAGE_BASE64", imgMime, imgBase64,
+                    System.currentTimeMillis() + ".img");
             media.add(m);
         }
 
@@ -323,9 +329,12 @@ public class ChatFragment extends Fragment {
         });
     }
 
-    private ChatMessage userMsg(String text, String base64) {
+    private ChatMessage userMsg(String text, String base64, String mime) {
         if (base64 != null) {
-            return ChatMessage.image(ChatMessage.Role.USER, "data:image/jpeg;base64," + base64);
+            if (mime == null || mime.isEmpty()) {
+                mime = "image/jpeg";
+            }
+            return ChatMessage.image(ChatMessage.Role.USER, "data:" + mime + ";base64," + base64);
         }
         return ChatMessage.text(ChatMessage.Role.USER, text);
     }
@@ -340,6 +349,7 @@ public class ChatFragment extends Fragment {
                 m.imageUrl = c.content;
             } else {
                 m.kind = ChatMessage.Kind.TEXT;
+                m.text = c.content == null ? "" : c.content;
             }
             streamBubbles.put(c.index, m);
             appendMessage(m);
@@ -361,6 +371,15 @@ public class ChatFragment extends Fragment {
         messages.add(m);
         adapter.notifyItemInserted(messages.size() - 1);
         scrollBottom();
+        // 新气泡入场微动画：淡入轻微上滑
+        UI.post(() -> {
+            if (layoutManager != null && messages.size() > 0) {
+                View v = layoutManager.findViewByPosition(messages.size() - 1);
+                if (v != null) {
+                    Ui.enter(v, R.anim.item_fade_slide);
+                }
+            }
+        });
     }
 
     private void scrollBottom() {
@@ -522,7 +541,7 @@ public class ChatFragment extends Fragment {
                 player.prepare();
                 player.start();
             } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败：" + e.getMessage());
+                Ui.toast(requireContext(), "播放失败，请稍后再试");
             }
         });
     }

@@ -10,6 +10,7 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AnimationUtils;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,6 +18,8 @@ import android.widget.Toast;
 import androidx.annotation.ColorInt;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.progressindicator.CircularProgressIndicator;
@@ -44,6 +47,11 @@ public final class Ui {
 
     public static void toast(Context c, String s, boolean longToast) {
         Ui.post(() -> Toast.makeText(c, s, longToast ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show());
+    }
+
+    /** 错误提示：较长时长展示，语义上与普通提示区分 */
+    public static void toastError(Context c, String s) {
+        toast(c, s == null || s.isEmpty() ? "出错了，请稍后再试" : s, true);
     }
 
     public static void confirm(Context c, String title, String message, String okText, Runnable onOk) {
@@ -184,5 +192,55 @@ public final class Ui {
 
     public static void setBg(View v, android.graphics.drawable.Drawable d) {
         v.setBackground(d);
+    }
+
+    /** 列表首次可见时逐条淡入上滑（RecyclerView 布局动画） */
+    public static void listEnter(androidx.recyclerview.widget.RecyclerView rv, int animRes) {
+        rv.setLayoutAnimation(AnimationUtils.loadLayoutAnimation(rv.getContext(), animRes));
+        rv.scheduleLayoutAnimation();
+    }
+
+    /** 下拉刷新容器：把目标 View 包进 SwipeRefreshLayout，返回外层以便 stopRefreshing */
+    public static SwipeRefreshLayout pullRefresh(Context c, View child, Runnable onRefresh) {
+        SwipeRefreshLayout srl = new SwipeRefreshLayout(c);
+        srl.setColorSchemeColors(0xFFFF5A7A, 0xFF7256FF, 0xFFFFB35A);
+        srl.setProgressBackgroundColorSchemeColor(0xFFFFFFFF);
+        srl.setDistanceToTriggerSync(dp(c, 64));
+        srl.setOnRefreshListener(onRefresh::run);
+        srl.addView(child, new SwipeRefreshLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        return srl;
+    }
+
+    /** 视图入场：淡入轻微上移 */
+    public static void enter(View v, int animRes) {
+        v.startAnimation(AnimationUtils.loadAnimation(v.getContext(), animRes));
+    }
+
+    /** 按钮按压反馈：按下缩小，抬起弹回 */
+    public static void pressScale(View v) {
+        v.setOnTouchListener((view, ev) -> {
+            switch (ev.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    view.animate().scaleX(0.94f).scaleY(0.94f).setDuration(90).start();
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    view.animate().scaleX(1f).scaleY(1f).setDuration(140).start();
+                    break;
+            }
+            return false;
+        });
+    }
+
+    /** 给可点击行加前景涟漪（触摸反馈） */
+    public static void ripple(View v) {
+        int[] attrs = {android.R.attr.selectableItemBackground};
+        android.content.res.TypedArray ta = v.getContext().obtainStyledAttributes(attrs);
+        android.graphics.drawable.Drawable d = ta.getDrawable(0);
+        ta.recycle();
+        if (d != null) {
+            v.setForeground(d);
+        }
     }
 }

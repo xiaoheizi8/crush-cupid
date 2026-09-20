@@ -122,7 +122,8 @@ public class SkillReportService {
             doc.write(out);
             return out.toByteArray();
         } catch (Exception e) {
-            throw new BizException("生成 Word 文档失败：" + e.getMessage());
+            log.warn("生成 Word 文档失败：{}", e.getMessage());
+            throw new BizException("生成报告失败，请稍后再试");
         }
     }
 

@@ -20,6 +20,8 @@ import androidx.fragment.app.Fragment;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+
+import cn.yzfy.crushApp.R;
 import java.util.List;
 
 import cn.yzfy.crushApp.api.Rest;
@@ -62,6 +64,7 @@ public class VoiceConfigFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText("音色配置");
@@ -78,6 +81,7 @@ public class VoiceConfigFragment extends Fragment {
         refresh.setBackground(Ui.rounded(0xFFFF5A7A, 12));
         refresh.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 6), Ui.dp(ctx, 10), Ui.dp(ctx, 6));
         refresh.setOnClickListener(v -> load());
+        Ui.pressScale(refresh);
         header.addView(refresh);
         root.addView(header);
 
@@ -121,6 +125,7 @@ public class VoiceConfigFragment extends Fragment {
         content.addView(voiceBox);
 
         scroll.addView(content);
+        Ui.enter(content, R.anim.fade_scale_in);
         root.addView(scroll);
         return root;
     }
@@ -137,6 +142,7 @@ public class VoiceConfigFragment extends Fragment {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = Ui.dp(ctx, 8);
         t.setLayoutParams(lp);
+        Ui.pressScale(t);
         return t;
     }
 
@@ -246,6 +252,7 @@ public class VoiceConfigFragment extends Fragment {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setBackground(Ui.rounded(0xFFFFFFFF, 14));
         row.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 10), Ui.dp(ctx, 12), Ui.dp(ctx, 10));
+        Ui.ripple(row);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = Ui.dp(ctx, 6);
@@ -470,7 +477,7 @@ public class VoiceConfigFragment extends Fragment {
                 player.prepare();
                 player.start();
             } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败：" + e.getMessage());
+                Ui.toast(requireContext(), "播放失败，请稍后再试");
             }
         });
     }

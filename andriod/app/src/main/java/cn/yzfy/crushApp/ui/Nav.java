@@ -16,8 +16,9 @@ public final class Nav {
     public static void push(FragmentActivity a, Fragment f) {
         a.getSupportFragmentManager()
                 .beginTransaction()
-                .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
-                        android.R.anim.fade_in, android.R.anim.fade_out)
+                .setCustomAnimations(
+                        R.anim.slide_in_right, R.anim.slide_out_left,
+                        R.anim.slide_in_left, R.anim.slide_out_right)
                 .replace(R.id.fragment_container, f)
                 .addToBackStack(null)
                 .commit();
@@ -29,15 +30,16 @@ public final class Nav {
             f.setArguments(args);
             push(a, f);
         } catch (Exception e) {
-            Ui.toast(a, "打开页面失败：" + e.getMessage());
+            Ui.toast(a, "打开页面失败，请稍后再试");
         }
     }
 
-    /** 首页等顶层：清空回退栈后替换 */
+    /** 首页等顶层：清空回退栈后替换（淡入放大） */
     public static void reset(FragmentActivity a, Fragment f) {
         FragmentManager fm = a.getSupportFragmentManager();
         fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
         fm.beginTransaction()
+                .setCustomAnimations(R.anim.fade_scale_in, 0)
                 .replace(R.id.fragment_container, f)
                 .commit();
     }

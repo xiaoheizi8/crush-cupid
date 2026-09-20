@@ -268,7 +268,7 @@ async function sendUser(text: string) {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : '军师暂时掉线'
-    messages.value[aiIdx].content = `[错误] ${msg}`
+    messages.value[aiIdx].content = msg
   } finally {
     streaming.value = false
     await scrollToBottom()

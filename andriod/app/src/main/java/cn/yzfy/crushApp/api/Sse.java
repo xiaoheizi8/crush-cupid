@@ -81,8 +81,7 @@ public final class Sse {
                 if (c.isCanceled()) {
                     main(l::onClosed);
                 } else {
-                    final String msg = e.getMessage() == null ? "网络错误" : "网络错误：" + e.getMessage();
-                    main(() -> l.onError(msg));
+                    main(() -> l.onError("网络连接失败，请检查网络后重试"));
                 }
             }
         });

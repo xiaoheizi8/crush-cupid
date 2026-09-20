@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.GsonFactory;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.api.SkillApi;
@@ -34,6 +35,7 @@ public class ReportsFragment extends Fragment {
     private RecyclerView list;
     private ReportAdapter adapter;
     private TextView empty;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh;
 
     @Nullable
     @Override
@@ -58,6 +60,7 @@ public class ReportsFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText("关系报告");
@@ -74,6 +77,7 @@ public class ReportsFragment extends Fragment {
         gen.setBackground(Ui.rounded(0xFF2FBF71, 12));
         gen.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 6), Ui.dp(ctx, 10), Ui.dp(ctx, 6));
         gen.setOnClickListener(v -> generate());
+        Ui.pressScale(gen);
         header.addView(gen);
         root.addView(header);
 
@@ -85,7 +89,10 @@ public class ReportsFragment extends Fragment {
         list.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 8), Ui.dp(ctx, 12), Ui.dp(ctx, 8));
         adapter = new ReportAdapter();
         list.setAdapter(adapter);
-        root.addView(list);
+        Ui.listEnter(list, R.anim.layout_list);
+        refresh = Ui.pullRefresh(ctx, list, this::load);
+        root.addView(refresh, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         empty = new TextView(ctx);
         empty.setText("还没有关系报告。\n点右上角「生成报告」用 AI 复盘你们的关系。");
@@ -136,6 +143,7 @@ public class ReportsFragment extends Fragment {
 
     private void load() {
         if (crush == null) {
+            if (refresh != null) refresh.setRefreshing(false);
             return;
         }
         SkillApi.reports(crush.slug, new Rest.Callback<List<CrushReport>>() {
@@ -145,10 +153,12 @@ public class ReportsFragment extends Fragment {
                 if (data != null) items.addAll(data);
                 adapter.notifyDataSetChanged();
                 empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+                if (refresh != null) refresh.setRefreshing(false);
             }
 
             @Override
             public void fail(String message) {
+                if (refresh != null) refresh.setRefreshing(false);
                 Ui.toast(requireContext(), message, true);
             }
         });
@@ -170,6 +180,7 @@ public class ReportsFragment extends Fragment {
             row.setBackground(Ui.rounded(0xFFFFFFFF, 16));
             row.setElevation(Ui.dp(ctx, 1));
             row.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 12), Ui.dp(ctx, 14), Ui.dp(ctx, 12));
+            Ui.ripple(row);
             RecyclerView.LayoutParams rp = new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rp.bottomMargin = Ui.dp(ctx, 8);

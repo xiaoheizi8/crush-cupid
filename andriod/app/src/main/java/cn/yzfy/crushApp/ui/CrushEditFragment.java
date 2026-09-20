@@ -51,6 +51,7 @@ public class CrushEditFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText(crush == null ? "新建暗恋对象" : "编辑「" + crush.name + "」");
@@ -71,6 +72,7 @@ public class CrushEditFragment extends Fragment {
         col.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 16), Ui.dp(ctx, 16), Ui.dp(ctx, 24));
         sv.addView(col);
         root.addView(sv);
+        Ui.enter(col, R.anim.item_fade_slide);
 
         nameInput = field(ctx, col, "名字 *");
         nameInput.setHint("TA 的名字");
@@ -109,6 +111,7 @@ public class CrushEditFragment extends Fragment {
         save.setBackground(Ui.rounded(0xFFFF5A7A, 14));
         save.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 12));
         save.setOnClickListener(v -> save());
+        Ui.pressScale(save);
         col.addView(save, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return root;

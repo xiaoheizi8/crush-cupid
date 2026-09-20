@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment;
 
 import java.util.List;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.api.SkillApi;
 import cn.yzfy.crushApp.model.SkillCatalog;
@@ -45,6 +46,7 @@ public class SkillCatalogFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText("Skill 技能包");
@@ -100,6 +102,7 @@ public class SkillCatalogFragment extends Fragment {
                         card.addView(v);
                     }
                     col.addView(card);
+                    Ui.enter(card, R.anim.item_fade_slide);
 
                     if (data.prompts != null && !data.prompts.isEmpty()) {
                         Ui.section(ctx, "可用 Prompt");
@@ -125,6 +128,7 @@ public class SkillCatalogFragment extends Fragment {
                     glp.topMargin = Ui.dp(ctx, 4);
                     go.setLayoutParams(glp);
                     go.setOnClickListener(v -> Nav.push(requireActivity(), AdvisorFragment.class, null));
+                    Ui.pressScale(go);
                     col.addView(go);
                 });
             }

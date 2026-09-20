@@ -618,7 +618,10 @@ async function send() {
     )
   } catch (e) {
     const msg = e instanceof Error ? e.message : '发送失败'
-    messages.value.push({ role: 'assistant', content: `[错误] ${msg}` })
+    messages.value.push({
+      role: 'assistant',
+      content: `抱歉，刚才的话没有送达：${msg}`,
+    })
   } finally {
     acc.reset()
     streaming.value = false
@@ -644,11 +647,14 @@ async function nudge() {
     })
     // 后端返回了空 SSE 流（Flux 异常或 LLM 无输出），给用户可见反馈
     if (!receivedAny) {
-      messages.value.push({ role: 'assistant', content: '…（ta 暂时没有回应，看下后端日志？）' })
+      messages.value.push({ role: 'assistant', content: '…TA 暂时没有回应，稍后再试试吧' })
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : '主动消息失败'
-    messages.value.push({ role: 'assistant', content: `[错误] ${msg}` })
+    messages.value.push({
+      role: 'assistant',
+      content: `抱歉，刚才的话没有送达：${msg}`,
+    })
   } finally {
     acc.reset()
     streaming.value = false

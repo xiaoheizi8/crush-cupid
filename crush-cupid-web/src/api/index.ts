@@ -1,4 +1,4 @@
-import http from './http'
+import http, { handleUnauthorized } from './http'
 import type {
   AdvisorCommand,
   AiProvider,
@@ -22,12 +22,22 @@ import type {
   Version,
   VersionVO,
   MyQuotaVO,
+  VoiceConfigVO,
 } from '@/types'
+
+const CODE_TEXT: Record<number, string> = {
+  401: '未登录或登录已过期，请重新登录',
+  403: '没有权限执行该操作',
+  404: '内容不存在或已被删除',
+  429: '操作过于频繁，请稍后再试',
+  500: '服务器开小差了，请稍后再试',
+}
 
 async function unwrap<T>(p: Promise<{ data: Result<T> }>): Promise<T> {
   const { data } = await p
   if (data.code !== 0) {
-    throw new Error(data.message)
+    const msg = CODE_TEXT[data.code] || data.message || '请求失败'
+    throw new Error(msg)
   }
   return data.data
 }
@@ -53,23 +63,23 @@ export async function deleteCrush(id: number): Promise<void> {
 }
 
 export async function listAiProviders(): Promise<AiProvider[]> {
-  return unwrap(http.get<Result<AiProvider[]>>('/ai-provider'))
+  return unwrap(http.get<Result<AiProvider[]>>('/provider'))
 }
 
 export async function getAiProvider(id: number): Promise<AiProvider> {
-  return unwrap(http.get<Result<AiProvider>>(`/ai-provider/${id}`))
+  return unwrap(http.get<Result<AiProvider>>(`/provider/${id}`))
 }
 
 export async function createAiProvider(payload: AiProviderPayload): Promise<AiProvider> {
-  return unwrap(http.post<Result<AiProvider>>('/ai-provider', payload))
+  return unwrap(http.post<Result<AiProvider>>('/provider', payload))
 }
 
 export async function updateAiProvider(id: number, payload: AiProviderPayload): Promise<AiProvider> {
-  return unwrap(http.put<Result<AiProvider>>(`/ai-provider/${id}`, payload))
+  return unwrap(http.put<Result<AiProvider>>(`/provider/${id}`, payload))
 }
 
 export async function deleteAiProvider(id: number): Promise<void> {
-  await unwrap(http.delete<Result<void>>(`/ai-provider/${id}`))
+  await unwrap(http.delete<Result<void>>(`/provider/${id}`))
 }
 
 export async function getSkillCatalog(): Promise<SkillCatalog> {
@@ -243,11 +253,28 @@ export async function getChatHistory(crushSlug: string): Promise<ChatHistoryVO[]
  */
 export function listenProactive(crushSlug: string, onMessage: (text: string) => void): () => void {
   const token = localStorage.getItem('satoken')
-  const qs = token ? `?crushSlug=${encodeURIComponent(crushSlug)}&satoken=${encodeURIComponent(token)}` : `?crushSlug=${encodeURIComponent(crushSlug)}`
+  if (!token) {
+    handleUnauthorized()
+    return () => {}
+  }
+  const qs = `?crushSlug=${encodeURIComponent(crushSlug)}&satoken=${encodeURIComponent(token)}`
   const es = new EventSource(`/api/push/listen${qs}`)
   es.addEventListener('proactive', (e) => {
     onMessage((e as MessageEvent).data)
   })
+  // EventSource 拿不到 HTTP 状态码：token 过期后连接会被服务端以 401 断开，
+  // 浏览器会静默自动重连。这里跟踪错误次数，连续失败即认为登录失效，强制登出。
+  let errorCount = 0
+  es.onerror = () => {
+    errorCount += 1
+    if (es.readyState === EventSource.CLOSED && errorCount >= 3) {
+      es.close()
+      handleUnauthorized()
+    }
+  }
+  es.onopen = () => {
+    errorCount = 0
+  }
   return () => es.close()
 }
 
@@ -271,6 +298,7 @@ async function sseStream(
 
   const contentType = resp.headers.get('content-type') || ''
   if (!resp.ok || !contentType.includes('text/event-stream')) {
+    if (resp.status === 401) handleUnauthorized()
     const data = (await resp.json().catch(() => null)) as Result<unknown> | null
     throw new Error((data && data.message) || '请求失败')
   }

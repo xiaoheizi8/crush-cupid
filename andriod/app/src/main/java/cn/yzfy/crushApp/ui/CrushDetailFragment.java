@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.CrushApi;
 import cn.yzfy.crushApp.api.GsonFactory;
 import cn.yzfy.crushApp.api.Rest;
@@ -68,6 +69,7 @@ public class CrushDetailFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText(crush == null ? "资料" : crush.name);
@@ -116,6 +118,8 @@ public class CrushDetailFragment extends Fragment {
         versionsBox = new LinearLayout(ctx);
         versionsBox.setOrientation(LinearLayout.VERTICAL);
         col.addView(versionsBox);
+
+        Ui.enter(col, R.anim.fade_scale_in);
 
         return root;
     }
@@ -254,6 +258,7 @@ public class CrushDetailFragment extends Fragment {
         lp.rightMargin = Ui.dp(ctx, 6);
         t.setLayoutParams(lp);
         t.setOnClickListener(v -> r.run());
+        Ui.pressScale(t);
         return t;
     }
 
@@ -446,7 +451,7 @@ public class CrushDetailFragment extends Fragment {
             if (mime == null) mime = "image/jpeg";
             upload(bos.toByteArray(), System.currentTimeMillis() + ".jpg", mime);
         } catch (Exception e) {
-            Ui.toast(requireContext(), "读取图片失败：" + e.getMessage());
+            Ui.toast(requireContext(), "读取图片失败，请换一张重试");
         }
     }
 

@@ -110,7 +110,7 @@ async function handleLogout() {
   localStorage.removeItem('satoken')
   user.value = null
   message.success(t('common.logoutSuccess'))
-  router.push('/chat')
+  router.push('/login')
 }
 </script>
 

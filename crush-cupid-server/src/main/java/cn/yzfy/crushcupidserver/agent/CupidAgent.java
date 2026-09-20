@@ -311,7 +311,8 @@ public class CupidAgent {
         } catch (Exception e) {
             future.cancel(true);
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            throw new BizException("模型调用失败：" + cause.getMessage());
+            log.warn("模型调用失败：{}", cause.getMessage());
+            throw new BizException("模型调用失败，请稍后再试或检查模型配置");
         }
     }
 
@@ -481,7 +482,8 @@ public class CupidAgent {
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
-            throw new BizException("解析多模态数据失败：" + e.getMessage());
+            log.warn("解析多模态数据失败：{}", e.getMessage());
+            throw new BizException("图片/音频内容解析失败，请换一张重试");
         }
     }
 

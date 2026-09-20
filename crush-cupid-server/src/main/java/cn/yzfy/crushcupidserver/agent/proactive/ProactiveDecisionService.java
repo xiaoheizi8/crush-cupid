@@ -79,7 +79,8 @@ public class ProactiveDecisionService {
             throw new BizException("决策模型调用超时（" + timeout.toSeconds() + "s）");
         } catch (Exception e) {
             future.cancel(true);
-            throw new BizException("决策模型调用失败：" + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
+            log.warn("决策模型调用失败：{}", e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
+            throw new BizException("主动消息决策失败，请稍后再试");
         }
     }
 

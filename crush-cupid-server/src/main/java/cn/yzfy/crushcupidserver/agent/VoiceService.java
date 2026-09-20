@@ -191,9 +191,11 @@ public class VoiceService {
                 return found;
             }
         } catch (Exception e) {
-            throw new BizException("声音设计响应解析失败：" + e.getMessage());
+            log.warn("声音设计响应解析失败：{}", e.getMessage());
+            throw new BizException("声音设计失败，请稍后再试");
         }
-        throw new BizException("声音设计失败：响应中无 voice_id，" + resp);
+        log.warn("声音设计响应中无 voice_id：{}", resp);
+        throw new BizException("声音设计失败，请稍后再试");
     }
 
     /** 递归查找指定字段的首个非空值 */

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.ProviderApi;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.model.AiProvider;
@@ -32,6 +33,7 @@ public class ProviderFragment extends Fragment {
     private final List<AiProvider> items = new ArrayList<>();
     private ProviderAdapter adapter;
     private TextView empty;
+    private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh;
 
     @Nullable
     @Override
@@ -55,6 +57,7 @@ public class ProviderFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText("模型供应商");
@@ -71,6 +74,7 @@ public class ProviderFragment extends Fragment {
         add.setBackground(Ui.rounded(0xFFFF5A7A, 12));
         add.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 6), Ui.dp(ctx, 10), Ui.dp(ctx, 6));
         add.setOnClickListener(v -> edit(null));
+        Ui.pressScale(add);
         header.addView(add);
         root.addView(header);
 
@@ -89,7 +93,10 @@ public class ProviderFragment extends Fragment {
         list.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 4), Ui.dp(ctx, 12), Ui.dp(ctx, 12));
         adapter = new ProviderAdapter();
         list.setAdapter(adapter);
-        root.addView(list);
+        Ui.listEnter(list, R.anim.layout_list);
+        refresh = Ui.pullRefresh(ctx, list, this::load);
+        root.addView(refresh, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
         empty = new TextView(ctx);
         empty.setText("还没有自定义供应商\n点右上角「＋ 新增」接入第一个模型");
@@ -116,10 +123,12 @@ public class ProviderFragment extends Fragment {
                 if (data != null) items.addAll(data);
                 adapter.notifyDataSetChanged();
                 empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
+                if (refresh != null) refresh.setRefreshing(false);
             }
 
             @Override
             public void fail(String message) {
+                if (refresh != null) refresh.setRefreshing(false);
                 Ui.toast(requireContext(), message, true);
             }
         });
@@ -141,6 +150,10 @@ public class ProviderFragment extends Fragment {
 
         final EditText name = field(box, ctx, "名称（如 deepseek）", p == null ? null : p.name);
         final EditText key = field(box, ctx, "供应商代号（providerKey）", p == null ? null : p.providerKey);
+        if (p != null) {
+            key.setEnabled(false);
+            key.setTextColor(0xFF6B5E70);
+        }
         final EditText baseUrl = field(box, ctx, "Base URL", p == null ? null : p.baseUrl);
         final EditText apiKey = field(box, ctx, "apiKey", p == null ? null : p.apiKey);
         final EditText model = field(box, ctx, "model 名称", p == null ? null : p.model);
@@ -157,11 +170,6 @@ public class ProviderFragment extends Fragment {
         audio.setText("音频（听语音/语音输入）");
         audio.setChecked(p != null && p.has("audio"));
         box.addView(audio);
-
-        final CheckBox def = new CheckBox(ctx);
-        def.setText("设为默认（同一时刻仅一个）");
-        def.setChecked(p != null && Boolean.TRUE.equals(p.isDefault));
-        box.addView(def);
 
         LinearLayout btns = new LinearLayout(ctx);
         btns.setOrientation(LinearLayout.HORIZONTAL);
@@ -203,7 +211,6 @@ public class ProviderFragment extends Fragment {
             if (vision.isChecked()) caps.add("vision");
             if (audio.isChecked()) caps.add("audio");
             n.capabilities = caps;
-            n.isDefault = def.isChecked();
             if (n.name.isEmpty() || n.providerKey.isEmpty() || n.baseUrl.isEmpty() || n.model.isEmpty()) {
                 Ui.toast(ctx, "名称/代号/BaseURL/model 必填");
                 return;
@@ -285,6 +292,7 @@ public class ProviderFragment extends Fragment {
             row.setBackground(Ui.rounded(0xFFFFFFFF, 16));
             row.setElevation(Ui.dp(ctx, 1));
             row.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 12), Ui.dp(ctx, 14), Ui.dp(ctx, 12));
+            Ui.ripple(row);
             RecyclerView.LayoutParams rp = new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             rp.bottomMargin = Ui.dp(ctx, 8);
@@ -319,7 +327,7 @@ public class ProviderFragment extends Fragment {
             TextView sub = (TextView) h.row.getChildAt(1);
             LinearLayout capsBox = (LinearLayout) h.row.getChildAt(2);
 
-            name.setText((Boolean.TRUE.equals(p.isDefault) ? "⭐ " : "") + (p.name == null ? "" : p.name));
+            name.setText(p.name == null ? "" : p.name);
             sub.setText((p.providerKey == null ? "" : p.providerKey) + " · " + (p.model == null ? "" : p.model));
 
             capsBox.removeAllViews();

@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment;
 
 import io.noties.markwon.Markwon;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.GsonFactory;
 import cn.yzfy.crushApp.model.CrushReport;
 
@@ -45,6 +46,7 @@ public class ReportDetailFragment extends Fragment {
         back.setTextColor(0xFF4A4052);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> requireActivity().onBackPressed());
+        Ui.pressScale(back);
         header.addView(back, Ui.dp(ctx, 44), Ui.dp(ctx, 44));
         TextView title = new TextView(ctx);
         title.setText(r == null || r.title == null || r.title.isEmpty() ? "关系报告" : r.title);
@@ -66,6 +68,7 @@ public class ReportDetailFragment extends Fragment {
         body.setPadding(Ui.dp(ctx, 18), Ui.dp(ctx, 16), Ui.dp(ctx, 18), Ui.dp(ctx, 32));
         body.setLineSpacing(Ui.dp(ctx, 4), 1.1f);
         sv.addView(body);
+        Ui.enter(body, R.anim.fade_scale_in);
 
         if (r != null) {
             String md = r.markdown;

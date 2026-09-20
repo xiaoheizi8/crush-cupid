@@ -1,8 +1,10 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {createRouter, createWebHashHistory, createWebHistory} from 'vue-router'
 import Layout from '@/layouts/Layout.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  // history: createWebHistory(),
+  // 启用prod
+  history:createWebHashHistory(),
   routes: [
     // 登录/注册页：独立于主布局，无 token 时的落脚点
     { path: '/login', name: 'Login', component: () => import('@/views/LoginView.vue'), meta: { title: '登录' } },
@@ -25,8 +27,7 @@ const router = createRouter({
   ],
 })
 
-// 登录守卫：无 token 一律去 /login（/login 自身放行，避免无限重定向）；已登录访问 /login 回 /chat
-router.beforeEach((to) => {
+ router.beforeEach((to) => {
   const token = localStorage.getItem('satoken')
   if (!token) {
     return to.path === '/login' ? true : '/login'

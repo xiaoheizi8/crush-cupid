@@ -115,6 +115,7 @@ public class LoginFragment extends Fragment {
         root.addView(registerForm);
 
         loadCaptcha();
+        Ui.enter(loginForm, R.anim.fade_scale_in);
         return scroll;
     }
 
@@ -210,6 +211,7 @@ public class LoginFragment extends Fragment {
 
         loginSubmit = submit("登 录");
         loginSubmit.setOnClickListener(v -> doLogin());
+        Ui.pressScale(loginSubmit);
         card.addView(loginSubmit);
 
         return card;
@@ -266,6 +268,7 @@ public class LoginFragment extends Fragment {
 
         registerSubmit = submit("注 册");
         registerSubmit.setOnClickListener(v -> doRegister());
+        Ui.pressScale(registerSubmit);
         card.addView(registerSubmit);
 
         return card;
