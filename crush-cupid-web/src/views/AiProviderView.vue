@@ -30,6 +30,7 @@
         size="middle"
         class="provider-table"
         :pagination="{ pageSize: 10, hideOnSinglePage: true }"
+        :scroll="{ x: 820 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'name'">
@@ -66,7 +67,7 @@
         v-model:open="modalOpen"
         :title="editing ? '编辑供应商' : '新增供应商'"
         :confirm-loading="saving"
-        width="600"
+        width="min(600px, 96vw)"
         :ok-text="editing ? '保存' : '创建'"
         @ok="submit"
       >

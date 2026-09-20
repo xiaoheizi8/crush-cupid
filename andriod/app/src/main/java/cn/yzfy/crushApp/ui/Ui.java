@@ -11,9 +11,9 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AnimationUtils;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.ColorInt;
 import androidx.core.content.ContextCompat;
@@ -42,16 +42,23 @@ public final class Ui {
     }
 
     public static void toast(Context c, String s) {
-        toast(c, s, false);
+        FriendlyToast.show(c, s);
     }
 
     public static void toast(Context c, String s, boolean longToast) {
-        Ui.post(() -> Toast.makeText(c, s, longToast ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show());
+        FriendlyToast.show(c, s, longToast);
     }
 
-    /** 错误提示：较长时长展示，语义上与普通提示区分 */
-    public static void toastError(Context c, String s) {
-        toast(c, s == null || s.isEmpty() ? "出错了，请稍后再试" : s, true);
+    public static void toast(Context c, String s, FriendlyToast.Type type) {
+        FriendlyToast.show(c, s, type);
+    }
+
+    public static void toast(Context c, String s, FriendlyToast.Type type, boolean longToast) {
+        FriendlyToast.show(c, s, type, longToast, null);
+    }
+
+    public static void toast(Context c, String s, FriendlyToast.Type type, boolean longToast, Runnable onTap) {
+        FriendlyToast.show(c, s, type, longToast, onTap);
     }
 
     public static void confirm(Context c, String title, String message, String okText, Runnable onOk) {
@@ -101,6 +108,49 @@ public final class Ui {
 
     public static GradientDrawable rounded(@ColorInt int color) {
         return rounded(color, 12);
+    }
+
+    /**
+     * 密码输入框：横向容器内含输入框 + 「显示/隐藏」切换按钮（默认隐匿，点击显明文）。
+     * 返回外层横向容器，传入的 EditText 会被包进容器。
+     */
+    public static LinearLayout passwordField(Context c, EditText et, String hint) {
+        et.setHint(hint);
+        et.setTextSize(15);
+        et.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        et.setSingleLine(true);
+        et.setBackgroundResource(R.drawable.bg_input);
+        et.setPadding(dp(c, 14), dp(c, 10), dp(c, 4), dp(c, 10));
+
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(et, new LinearLayout.LayoutParams(0,
+                dp(c, 48), 1f));
+
+        TextView eye = new TextView(c);
+        eye.setText("显示");
+        eye.setTextSize(12);
+        eye.setTextColor(0xFFB07B8C);
+        eye.setGravity(Gravity.CENTER);
+        eye.setPadding(dp(c, 12), 0, dp(c, 12), 0);
+        eye.setOnClickListener(v -> togglePassword(et, eye));
+        row.addView(eye, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(c, 48)));
+        return row;
+    }
+
+    /** 密码可见性切换：默认隐匿，点击在密文/明文间切换，显明文时按钮高亮 */
+    private static void togglePassword(EditText et, TextView eye) {
+        boolean showing = (et.getInputType()
+                & android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) != 0;
+        et.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                | (showing ? android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        : android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD));
+        et.setSelection(et.getText() == null ? 0 : et.getText().length());
+        eye.setText(showing ? "显示" : "隐藏");
+        eye.setTextColor(showing ? 0xFFB07B8C : 0xFFE8405F);
     }
 
     /** 胶囊标签 chip */

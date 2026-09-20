@@ -3,7 +3,7 @@
   <PageContainer icon="👤" :title="t('user.title')" subtitle="我的资料 · 配额 · 账号安全">
     <div class="user-page">
       <a-row :gutter="20" class="user-row">
-        <a-col :span="8">
+        <a-col :xs="24" :md="8">
           <div class="profile-card">
             <div class="profile-card__avatar">
               {{ user?.username?.charAt(0) || '?' }}
@@ -23,28 +23,28 @@
           </div>
         </a-col>
 
-        <a-col :span="16">
+        <a-col :xs="24" :md="16">
           <a-card class="quota-card" :title="'📊 ' + t('user.quota')">
             <a-row :gutter="16">
-              <a-col :span="6">
+              <a-col :xs="12" :md="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.crushCount || 0 }}</div>
                   <div class="quota-item__label">暗恋对象上限</div>
                 </div>
               </a-col>
-              <a-col :span="6">
+              <a-col :xs="12" :md="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.dailyChatLimit || 0 }}</div>
                   <div class="quota-item__label">每日对话上限</div>
                 </div>
               </a-col>
-              <a-col :span="6">
+              <a-col :xs="12" :md="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.todayMessageCount || 0 }}</div>
                   <div class="quota-item__label">{{ t('user.used') }}</div>
                 </div>
               </a-col>
-              <a-col :span="6">
+              <a-col :xs="12" :md="6">
                 <div class="quota-item">
                   <div class="quota-item__value">{{ quota?.plan || '—' }}</div>
                   <div class="quota-item__label">{{ t('user.plan') }}</div>

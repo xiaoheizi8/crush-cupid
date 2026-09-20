@@ -151,18 +151,22 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
         if (conversationId == null) {
             return null;
         }
-        if (conversationId.startsWith(USER_PREFIX + ":")) {
-            int sep = conversationId.indexOf(":" + CONV_PREFIX);
-            if (sep < 0) {
-                return null;
+        // 主格式 "u{userId}:crush:{crushId}"（与 CupidAgent 构造一致）；兼容带冒号旧写法 "u:{userId}:crush:{crushId}"
+        if (conversationId.startsWith(USER_PREFIX)) {
+            String body = conversationId.startsWith(USER_PREFIX + ":")
+                    ? conversationId.substring(USER_PREFIX.length() + 1)
+                    : conversationId.substring(USER_PREFIX.length());
+            int sep = body.indexOf(CONV_PREFIX);
+            if (sep > 0) {
+                try {
+                    long userId = Long.parseLong(body.substring(0, sep));
+                    long crushId = Long.parseLong(body.substring(sep + CONV_PREFIX.length()));
+                    return new ConvKey(userId, crushId);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
             }
-            try {
-                long userId = Long.parseLong(conversationId.substring(USER_PREFIX.length() + 1, sep));
-                long crushId = Long.parseLong(conversationId.substring(sep + CONV_PREFIX.length() + 1));
-                return new ConvKey(userId, crushId);
-            } catch (NumberFormatException e) {
-                return null;
-            }
+            return null;
         }
         // 旧格式 "crush:{crushId}"：归属视作共享桶 0
         if (conversationId.startsWith(CONV_PREFIX)) {

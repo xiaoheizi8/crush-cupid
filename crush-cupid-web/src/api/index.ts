@@ -36,6 +36,9 @@ const CODE_TEXT: Record<number, string> = {
 async function unwrap<T>(p: Promise<{ data: Result<T> }>): Promise<T> {
   const { data } = await p
   if (data.code !== 0) {
+    // 兜底：个别接口可能返回 HTTP 200 + body.code=401（业务层抛 unauthorized），
+    // 拦截器只认 HTTP 状态码，这里按 body code 同样强制登出，避免漏网。
+    if (data.code === 401) handleUnauthorized()
     const msg = CODE_TEXT[data.code] || data.message || '请求失败'
     throw new Error(msg)
   }
@@ -262,12 +265,14 @@ export function listenProactive(crushSlug: string, onMessage: (text: string) => 
   es.addEventListener('proactive', (e) => {
     onMessage((e as MessageEvent).data)
   })
-  // EventSource 拿不到 HTTP 状态码：token 过期后连接会被服务端以 401 断开，
-  // 浏览器会静默自动重连。这里跟踪错误次数，连续失败即认为登录失效，强制登出。
+  // EventSource 拿不到 HTTP 状态码：token 过期后连接会被服务端以 401 断开。
+  // 浏览器会自动重连并反复触发 onerror（此时 readyState 一直是 CONNECTING，
+  // 只有调用 close() 才会变 CLOSED），所以不能依赖 readyState 判断，
+  // 用连续失败次数代替：连续失败达 3 次即认为登录失效，强制登出。
   let errorCount = 0
   es.onerror = () => {
     errorCount += 1
-    if (es.readyState === EventSource.CLOSED && errorCount >= 3) {
+    if (errorCount >= 3) {
       es.close()
       handleUnauthorized()
     }

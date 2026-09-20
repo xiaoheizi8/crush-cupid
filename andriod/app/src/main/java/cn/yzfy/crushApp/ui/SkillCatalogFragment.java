@@ -73,7 +73,7 @@ public class SkillCatalogFragment extends Fragment {
             public void ok(final SkillCatalog data) {
                 Ui.dismiss(dlg);
                 if (data == null || data.skill == null) {
-                    Ui.toast(requireContext(), "技能包数据为空");
+                    Ui.toast(requireContext(), "技能包数据为空", FriendlyToast.Type.WARN);
                     return;
                 }
                 Ui.post(() -> {
@@ -136,7 +136,7 @@ public class SkillCatalogFragment extends Fragment {
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
         return root;

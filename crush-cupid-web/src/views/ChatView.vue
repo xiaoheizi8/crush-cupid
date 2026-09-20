@@ -52,7 +52,7 @@
     <div class="chat-page">
       <a-row :gutter="20" class="chat-row">
         <!-- 左侧：crush 选择 -->
-        <a-col :span="6">
+        <a-col :xs="24" :md="6">
           <div class="side-card">
             <div class="side-card__title">选择暗恋对象</div>
             <a-select
@@ -89,7 +89,7 @@
         </a-col>
 
         <!-- 右侧：聊天区 -->
-        <a-col :span="18" class="chat-col">
+        <a-col :xs="24" :md="18" class="chat-col">
           <div class="chat-card">
             <div class="chat-card__head">
               <div class="chat-card__title">
@@ -1160,5 +1160,33 @@ onUnmounted(() => {
   border-radius: var(--cupid-radius-sm) !important;
   min-width: 90px;
   height: 60px !important;
+}
+
+/* 移动端：聊天卡片固定高度以支持内部滚动 */
+@media (max-width: 768px) {
+  .chat-page,
+  .chat-row {
+    height: auto;
+  }
+  .chat-col {
+    height: 62vh;
+  }
+  .chat-col .chat-card {
+    min-height: 100%;
+  }
+  .side-card {
+    padding: 16px 18px;
+    gap: 10px;
+  }
+  .messages {
+    padding: 14px 14px;
+  }
+  .input-row {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .input-row .send-btn {
+    min-width: 76px;
+  }
 }
 </style>

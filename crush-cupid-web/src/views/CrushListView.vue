@@ -15,7 +15,39 @@
     </template>
 
     <div class="crush-list cupid-fade-in">
+      <!-- 移动端卡片列表（窄屏时替代表格） -->
+      <div v-if="isMobile" class="crush-cards">
+        <div v-for="record in crushes" :key="record.id" class="crush-card">
+          <div class="crush-card__top">
+            <div class="crush-card__avatar">{{ record.name?.charAt(0) || '?' }}</div>
+            <div class="crush-card__info">
+              <div class="crush-card__name">{{ record.name }}</div>
+              <div class="crush-card__slug">{{ record.slug }}</div>
+            </div>
+            <a-tag :color="record.status === 'READY' ? 'green' : 'orange'" class="status-tag">
+              {{ record.status || 'DRAFT' }}
+            </a-tag>
+          </div>
+          <div class="crush-card__meta">
+            <span v-if="record.mbti">{{ record.mbti }}</span>
+            <span v-if="record.zodiac">{{ record.zodiac }}</span>
+            <span v-if="!record.mbti && !record.zodiac" class="crush-card__id">#{{ record.id }}</span>
+          </div>
+          <div class="crush-card__ops">
+            <a class="action-link" @click="openEdit(record)">编辑</a>
+            <a class="action-link" @click="openImport(record)">导入</a>
+            <a class="action-link action-link--primary" @click="build(record)">构建</a>
+            <a-popconfirm title="确定删除？" @confirm="remove(record)">
+              <a class="action-link action-link--danger">删除</a>
+            </a-popconfirm>
+          </div>
+        </div>
+        <div v-if="!loading && crushes.length === 0" class="crush-card__empty">还没有暗恋对象，点右上角「新建」开始～</div>
+      </div>
+
+      <!-- 桌面表格 -->
       <a-table
+        v-else
         :data-source="crushes"
         :columns="columns"
         row-key="id"
@@ -23,6 +55,7 @@
         size="middle"
         class="crush-table"
         :pagination="{ pageSize: 10, hideOnSinglePage: true }"
+        :scroll="{ x: 760 }"
       >
         <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'name'">
@@ -62,7 +95,7 @@
         v-model:open="modalOpen"
         :title="editing ? '编辑暗恋对象' : '新建暗恋对象'"
         :confirm-loading="saving"
-        width="560"
+        width="min(560px, 96vw)"
         @ok="submit"
       >
         <a-form :model="form" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }" class="crush-form">
@@ -83,13 +116,16 @@
             <a-input v-model:value="form.voiceId" placeholder="CosyVoice voice_id，空则走默认音色" />
           </a-form-item>
         </a-form>
+        <div class="form-voice-help">
+          💡 各音色 voice_id 参考：<a href="https://help.aliyun.com/zh/model-studio/voices" target="_blank" rel="noopener noreferrer">CosyVoice 音色参考 ↗</a>
+        </div>
       </a-modal>
 
       <!-- 构建结果弹窗 -->
       <a-modal
         v-model:open="buildOpen"
         :title="buildResult ? '✅ 构建完成' : '⏳ 构建中…'"
-        width="640"
+        width="min(640px, 96vw)"
         :footer="null"
       >
         <div class="build-log">
@@ -120,6 +156,9 @@ import { buildCrush, createCrush, deleteCrush, listCrushes, updateCrush } from '
 import type { BuildResult, Crush, CrushCreatePayload } from '@/types'
 import SourceImportModal from '@/components/SourceImportModal.vue'
 import PageContainer from '@/components/PageContainer.vue'
+
+/** 窄屏时用卡片列表渲染（替代横向挤压的表格） */
+const isMobile = ref(false)
 
 /** 表格列定义 */
 const columns = [
@@ -264,7 +303,14 @@ async function remove(record: Crush) {
   await load()
 }
 
-onMounted(load)
+onMounted(() => {
+  const mql = window.matchMedia('(max-width: 768px)')
+  isMobile.value = mql.matches
+  mql.addEventListener('change', (e) => {
+    isMobile.value = e.matches
+  })
+  load()
+})
 </script>
 
 <style scoped>
@@ -274,6 +320,76 @@ onMounted(load)
   border-radius: var(--cupid-radius);
   box-shadow: var(--cupid-shadow-sm);
   overflow: hidden;
+}
+
+/* 移动端卡片列表 */
+.crush-cards {
+  display: flex;
+  flex-direction: column;
+}
+.crush-card {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--cupid-border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.crush-card:last-child {
+  border-bottom: none;
+}
+.crush-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.crush-card__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--cupid-gradient);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: var(--cupid-shadow-sm);
+}
+.crush-card__info {
+  flex: 1;
+  min-width: 0;
+}
+.crush-card__name {
+  font-weight: 600;
+  color: var(--cupid-text);
+  font-size: 15px;
+}
+.crush-card__slug {
+  font-size: 12px;
+  color: var(--cupid-text-muted);
+  margin-top: 2px;
+}
+.crush-card__meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cupid-text-secondary);
+}
+.crush-card__id {
+  color: var(--cupid-text-muted);
+}
+.crush-card__ops {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 2px;
+}
+.crush-card__empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--cupid-text-muted);
+  font-size: 14px;
 }
 
 /* 表格美化 */
@@ -384,6 +500,17 @@ onMounted(load)
 
 .build-result {
   margin-top: 14px;
+}
+
+/* 音色参考链接 */
+.form-voice-help {
+  font-size: 12px;
+  color: var(--cupid-text-secondary);
+  padding: 0 2px 8px;
+}
+.form-voice-help a {
+  color: var(--cupid-primary);
+  font-weight: 600;
 }
 
 .build-done-btn {

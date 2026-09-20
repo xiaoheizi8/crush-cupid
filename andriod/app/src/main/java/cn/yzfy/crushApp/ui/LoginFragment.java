@@ -162,8 +162,8 @@ public class LoginFragment extends Fragment {
         card.addView(loginEmail);
 
         card.addView(label("密码"));
-        loginPassword = input("密码", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        card.addView(loginPassword);
+        loginPassword = new EditText(requireContext());
+        card.addView(Ui.passwordField(requireContext(), loginPassword, "密码"));
 
         card.addView(label("图形验证码"));
         LinearLayout captchaRow = new LinearLayout(requireContext());
@@ -260,8 +260,8 @@ public class LoginFragment extends Fragment {
         card.addView(regCode);
 
         card.addView(label("密码"));
-        regPassword = input("至少 8 位，含大小写字母和数字", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        card.addView(regPassword);
+        regPassword = new EditText(requireContext());
+        card.addView(Ui.passwordField(requireContext(), regPassword, "至少 8 位，含大小写字母和数字"));
 
         regErr = errorText();
         card.addView(regErr);
@@ -284,7 +284,7 @@ public class LoginFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "验证码加载失败：" + message);
+                Ui.toast(requireContext(), "验证码加载失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -292,7 +292,7 @@ public class LoginFragment extends Fragment {
     private void sendRegisterCode() {
         String email = text(regEmail);
         if (email.isEmpty() || !email.contains("@")) {
-            Ui.toast(requireContext(), "请先填写正确的邮箱");
+            Ui.toast(requireContext(), "请先填写正确的邮箱", FriendlyToast.Type.WARN);
             return;
         }
         if (sendingCode) return;
@@ -301,7 +301,7 @@ public class LoginFragment extends Fragment {
         AuthApi.sendEmailCode(email, "REGISTER", new Rest.Callback<Void>() {
             @Override
             public void ok(Void data) {
-                Ui.toast(requireContext(), "验证码已发送，请查收邮箱");
+                Ui.toast(requireContext(), "验证码已发送，请查收邮箱", FriendlyToast.Type.SUCCESS);
                 startCountdown();
             }
 
@@ -309,7 +309,7 @@ public class LoginFragment extends Fragment {
             public void fail(String message) {
                 sendingCode = false;
                 sendCodeBtn.setEnabled(true);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }

@@ -196,7 +196,7 @@ public class HomeFragment extends Fragment {
             if (refresh != null) refresh.setRefreshing(false);
         }, e -> {
             if (refresh != null) refresh.setRefreshing(false);
-            Ui.toast(requireContext(), e, true);
+            Ui.toast(requireContext(), e, FriendlyToast.Type.ERROR, true);
         }));
     }
 

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mcp-NDU4NThjYzM3Nzdk": {
+      "type": "streamableHttp",
+      "description": "阿里云行驶证识别（行驶证OCR识别-行驶证图像识别-行驶证图片识别）支持正反面识别、生僻字识别，具备复印件/图像坐标检测、图像智能旋转/畸变矫正/分辨率增强等能力。识别内容包括号牌号码、车辆类型、所有人、住址、使用性质、品牌型号、档案编号、核定载人数等。支持base64和公网可访问的地址，图片格式支持：PNG、JPG、JPEG、BMP、GIF、TIFF、WebP。",
+      "isActive": true,
+      "name": "AliyunBailianMCP_mcp-NDU4NThjYzM3Nzdk",
+      "baseUrl": "https://dashscope.aliyuncs.com/api/v1/mcps/mcp-NDU4NThjYzM3Nzdk/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-27dc9862d8cc4e56b9b0a192fb4180dd"
+      }
+    }
+  }
+}

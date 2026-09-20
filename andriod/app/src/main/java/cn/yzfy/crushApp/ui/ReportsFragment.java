@@ -35,6 +35,7 @@ public class ReportsFragment extends Fragment {
     private RecyclerView list;
     private ReportAdapter adapter;
     private TextView empty;
+    private boolean animatedOnce;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh;
 
     @Nullable
@@ -89,7 +90,7 @@ public class ReportsFragment extends Fragment {
         list.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 8), Ui.dp(ctx, 12), Ui.dp(ctx, 8));
         adapter = new ReportAdapter();
         list.setAdapter(adapter);
-        Ui.listEnter(list, R.anim.layout_list);
+        list.setLayoutAnimation(android.view.animation.AnimationUtils.loadLayoutAnimation(ctx, R.anim.layout_list));
         refresh = Ui.pullRefresh(ctx, list, this::load);
         root.addView(refresh, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -117,14 +118,14 @@ public class ReportsFragment extends Fragment {
                 if (data != null) {
                     openReport(data);
                 } else {
-                    Ui.toast(requireContext(), "报告为空");
+                    Ui.toast(requireContext(), "报告为空", FriendlyToast.Type.WARN);
                 }
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -152,6 +153,10 @@ public class ReportsFragment extends Fragment {
                 items.clear();
                 if (data != null) items.addAll(data);
                 adapter.notifyDataSetChanged();
+                if (!animatedOnce) {
+                    animatedOnce = true;
+                    list.scheduleLayoutAnimation();
+                }
                 empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
                 if (refresh != null) refresh.setRefreshing(false);
             }
@@ -159,7 +164,7 @@ public class ReportsFragment extends Fragment {
             @Override
             public void fail(String message) {
                 if (refresh != null) refresh.setRefreshing(false);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -225,7 +230,7 @@ public class ReportsFragment extends Fragment {
 
                             @Override
                             public void fail(String message) {
-                                Ui.toast(requireContext(), message);
+                                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
                             }
                         }));
                 return true;

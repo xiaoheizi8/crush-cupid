@@ -33,6 +33,8 @@ public class ProviderFragment extends Fragment {
     private final List<AiProvider> items = new ArrayList<>();
     private ProviderAdapter adapter;
     private TextView empty;
+    private boolean animatedOnce;
+    private RecyclerView list;
     private androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh;
 
     @Nullable
@@ -85,7 +87,7 @@ public class ProviderFragment extends Fragment {
         tip.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 8), Ui.dp(ctx, 16), Ui.dp(ctx, 4));
         root.addView(tip);
 
-        RecyclerView list = new RecyclerView(ctx);
+        list = new RecyclerView(ctx);
         list.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         list.setLayoutManager(new LinearLayoutManager(ctx));
@@ -93,7 +95,7 @@ public class ProviderFragment extends Fragment {
         list.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 4), Ui.dp(ctx, 12), Ui.dp(ctx, 12));
         adapter = new ProviderAdapter();
         list.setAdapter(adapter);
-        Ui.listEnter(list, R.anim.layout_list);
+        list.setLayoutAnimation(android.view.animation.AnimationUtils.loadLayoutAnimation(ctx, R.anim.layout_list));
         refresh = Ui.pullRefresh(ctx, list, this::load);
         root.addView(refresh, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -122,6 +124,10 @@ public class ProviderFragment extends Fragment {
                 items.clear();
                 if (data != null) items.addAll(data);
                 adapter.notifyDataSetChanged();
+                if (!animatedOnce) {
+                    animatedOnce = true;
+                    list.scheduleLayoutAnimation();
+                }
                 empty.setVisibility(items.isEmpty() ? View.VISIBLE : View.GONE);
                 if (refresh != null) refresh.setRefreshing(false);
             }
@@ -129,7 +135,7 @@ public class ProviderFragment extends Fragment {
             @Override
             public void fail(String message) {
                 if (refresh != null) refresh.setRefreshing(false);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -155,7 +161,21 @@ public class ProviderFragment extends Fragment {
             key.setTextColor(0xFF6B5E70);
         }
         final EditText baseUrl = field(box, ctx, "Base URL", p == null ? null : p.baseUrl);
-        final EditText apiKey = field(box, ctx, "apiKey", p == null ? null : p.apiKey);
+        final EditText apiKey;
+        {
+            TextView tv = new TextView(ctx);
+            tv.setText("apiKey");
+            tv.setTextSize(12);
+            tv.setTextColor(0xFF6B5E70);
+            LinearLayout.LayoutParams lpl = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpl.topMargin = Ui.dp(ctx, 8);
+            tv.setLayoutParams(lpl);
+            box.addView(tv);
+            apiKey = new EditText(ctx);
+            if (p != null && p.apiKey != null) apiKey.setText(p.apiKey);
+            box.addView(Ui.passwordField(ctx, apiKey, "apiKey 密钥"));
+        }
         final EditText model = field(box, ctx, "model 名称", p == null ? null : p.model);
         final EditText temp = field(box, ctx, "temperature（选填）", p == null || p.temperature == null ? null : String.valueOf(p.temperature));
         final EditText topP = field(box, ctx, "topP（选填）", p == null || p.topP == null ? null : String.valueOf(p.topP));
@@ -212,7 +232,7 @@ public class ProviderFragment extends Fragment {
             if (audio.isChecked()) caps.add("audio");
             n.capabilities = caps;
             if (n.name.isEmpty() || n.providerKey.isEmpty() || n.baseUrl.isEmpty() || n.model.isEmpty()) {
-                Ui.toast(ctx, "名称/代号/BaseURL/model 必填");
+                Ui.toast(ctx, "名称/代号/BaseURL/model 必填", FriendlyToast.Type.WARN);
                 return;
             }
             d.dismiss();
@@ -236,14 +256,14 @@ public class ProviderFragment extends Fragment {
             @Override
             public void ok(AiProvider data) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), "已保存，即时生效");
+                Ui.toast(requireContext(), "已保存，即时生效", FriendlyToast.Type.SUCCESS);
                 load();
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         };
     }
@@ -349,7 +369,7 @@ public class ProviderFragment extends Fragment {
 
                             @Override
                             public void fail(String message) {
-                                Ui.toast(requireContext(), message);
+                                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
                             }
                         }));
                 return true;

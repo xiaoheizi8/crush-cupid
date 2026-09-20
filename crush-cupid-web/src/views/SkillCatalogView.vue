@@ -109,7 +109,7 @@
               <a-select
                 v-model:value="reportSlug"
                 placeholder="选择暗恋对象"
-                style="width: 240px"
+                class="report-select"
                 :options="crushOptions"
               />
             </div>
@@ -158,7 +158,7 @@
     <a-modal
       v-model:open="promptOpen"
       :title="`📄 prompt: ${currentPrompt}`"
-      width="760"
+      width="min(760px, 96vw)"
       :footer="null"
     >
       <pre class="prompt-pre">{{ promptContent }}</pre>
@@ -168,7 +168,7 @@
     <a-modal
       v-model:open="advisorOpen"
       :title="`🎯 军师 · ${currentAdvisor?.title || ''}`"
-      width="680"
+      width="min(680px, 96vw)"
       :confirm-loading="advisorBusy"
       @ok="doAdvisorInvoke"
     >
@@ -188,7 +188,7 @@
           <a-select
             v-model:value="reportSlug"
             placeholder="选择暗恋对象"
-            style="width: 240px"
+            class="report-select"
             :options="crushOptions"
           />
         </div>
@@ -200,7 +200,7 @@
     <a-modal
       v-model:open="detailOpen"
       :title="'📑 报告详情'"
-      width="780"
+      width="min(780px, 96vw)"
       :footer="null"
     >
       <a-spin :spinning="detailBusy">
@@ -734,5 +734,25 @@ onMounted(load)
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .report-select {
+    width: 100% !important;
+  }
+  .info-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .prompts-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .report-row {
+    flex-wrap: wrap !important;
+  }
+  .report-row__label,
+  .report-label {
+    min-width: 0 !important;
+  }
 }
 </style>

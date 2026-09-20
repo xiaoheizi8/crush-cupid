@@ -335,7 +335,7 @@ public class CrushDetailFragment extends Fragment {
         ok.setOnClickListener(v -> {
             String text = content.getText().toString().trim();
             if (text.isEmpty()) {
-                Ui.toast(ctx, "内容不能为空");
+                Ui.toast(ctx, "内容不能为空", FriendlyToast.Type.WARN);
                 return;
             }
             d.dismiss();
@@ -359,13 +359,13 @@ public class CrushDetailFragment extends Fragment {
         CrushApi.addSource(crush.id, text, "TEXT", null, new Rest.Callback<Source>() {
             @Override
             public void ok(Source data) {
-                Ui.toast(requireContext(), "已导入");
+                Ui.toast(requireContext(), "已导入", FriendlyToast.Type.SUCCESS);
                 loadSources();
             }
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -374,13 +374,13 @@ public class CrushDetailFragment extends Fragment {
         CrushApi.uploadSource(crush.id, bytes, name, mime, new Rest.Callback<Source>() {
             @Override
             public void ok(Source data) {
-                Ui.toast(requireContext(), "图片已导入（OCR 或原图）");
+                Ui.toast(requireContext(), "图片已导入（OCR 或原图）", FriendlyToast.Type.SUCCESS);
                 loadSources();
             }
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -397,7 +397,7 @@ public class CrushDetailFragment extends Fragment {
                     } else if ("done".equals(ev.type)) {
                         String v = ev.result != null && ev.result.version != null ? " v" + ev.result.version : "";
                         buildText.setText("✓ 构建完成" + v);
-                        Ui.toast(requireContext(), "人格构建完成" + v);
+                        Ui.toast(requireContext(), "人格构建完成" + v, FriendlyToast.Type.SUCCESS);
                         Ui.post(() -> {
                             loadCrush();
                             loadVersions();
@@ -451,7 +451,7 @@ public class CrushDetailFragment extends Fragment {
             if (mime == null) mime = "image/jpeg";
             upload(bos.toByteArray(), System.currentTimeMillis() + ".jpg", mime);
         } catch (Exception e) {
-            Ui.toast(requireContext(), "读取图片失败，请换一张重试");
+            Ui.toast(requireContext(), "读取图片失败，请换一张重试", FriendlyToast.Type.ERROR);
         }
     }
 
@@ -532,7 +532,7 @@ public class CrushDetailFragment extends Fragment {
 
                     @Override
                     public void fail(String message) {
-                        Ui.toast(ctx, message);
+                        Ui.toast(ctx, message, FriendlyToast.Type.ERROR);
                     }
                 })));
         top.addView(del);

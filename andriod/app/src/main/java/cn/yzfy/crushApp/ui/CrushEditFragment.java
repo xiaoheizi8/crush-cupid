@@ -147,7 +147,7 @@ public class CrushEditFragment extends Fragment {
     private void save() {
         String name = nameInput.getText().toString().trim();
         if (name.isEmpty()) {
-            Ui.toast(requireContext(), "请填写名字");
+            Ui.toast(requireContext(), "请填写名字", FriendlyToast.Type.WARN);
             return;
         }
         CrushPayload p = new CrushPayload();
@@ -163,33 +163,33 @@ public class CrushEditFragment extends Fragment {
         if (crush == null) {
             String slug = slugInput.getText().toString().trim();
             if (slug.isEmpty()) {
-                Ui.toast(requireContext(), "请填写 slug（唯一标识）");
+                Ui.toast(requireContext(), "请填写 slug（唯一标识）", FriendlyToast.Type.WARN);
                 return;
             }
             p.slug = slug;
             CrushApi.create(p, new Rest.Callback<Crush>() {
                 @Override
                 public void ok(Crush data) {
-                    Ui.toast(requireContext(), "创建成功");
+                    Ui.toast(requireContext(), "创建成功", FriendlyToast.Type.SUCCESS);
                     requireActivity().onBackPressed();
                 }
 
                 @Override
                 public void fail(String message) {
-                    Ui.toast(requireContext(), message, true);
+                    Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
                 }
             });
         } else {
             CrushApi.update(crush.id, p, new Rest.Callback<Crush>() {
                 @Override
                 public void ok(Crush data) {
-                    Ui.toast(requireContext(), "已保存");
+                    Ui.toast(requireContext(), "已保存", FriendlyToast.Type.SUCCESS);
                     requireActivity().onBackPressed();
                 }
 
                 @Override
                 public void fail(String message) {
-                    Ui.toast(requireContext(), message, true);
+                    Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
                 }
             });
         }

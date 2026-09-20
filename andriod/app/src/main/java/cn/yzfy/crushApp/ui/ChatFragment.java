@@ -271,7 +271,7 @@ public class ChatFragment extends Fragment {
             previewLabel.setText(String.format("已选图片（%dKB）", bytes.length / 1024));
             previewRow.setVisibility(View.VISIBLE);
         } catch (Exception e) {
-            Ui.toast(requireContext(), "读取图片失败，请换一张重试");
+            Ui.toast(requireContext(), "读取图片失败，请换一张重试", FriendlyToast.Type.ERROR);
         }
     }
 
@@ -324,7 +324,7 @@ public class ChatFragment extends Fragment {
             @Override
             public void onError(String message) {
                 endStreaming("·");
-                Ui.toast(requireContext(), message);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -444,7 +444,13 @@ public class ChatFragment extends Fragment {
             public void onEvent(String data) {
                 if (!streaming) {
                     loadHistory(false);
-                    Ui.toast(requireContext(), "💌「" + crush.name + "」主动发来消息", true);
+                    Ui.toast(requireContext(), "💌「" + crush.name + "」主动发来消息",
+                            FriendlyToast.Type.INFO, true, () -> {
+                                if (getView() != null) {
+                                    loadHistory(false);
+                                    scrollBottom();
+                                }
+                            });
                 }
             }
 
@@ -491,7 +497,7 @@ public class ChatFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "加载历史失败：" + message);
+                Ui.toast(requireContext(), "加载历史失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -505,20 +511,33 @@ public class ChatFragment extends Fragment {
                 return;
             }
         }
-        Ui.toast(requireContext(), "还没有可播放的回复");
+        Ui.toast(requireContext(), "还没有可播放的回复", FriendlyToast.Type.WARN);
+    }
+
+    /** 播放中状态：正在播放的文本与开关标志（供语音按钮显示 ▶/■） */
+    private boolean playingVoice = false;
+    private String playingText = null;
+
+    private void toggleVoice(String text) {
+        if (playingVoice) {
+            releasePlayer();
+            return;
+        }
+        speak(text);
     }
 
     private void speak(String text) {
-        Ui.toast(requireContext(), "TA 正在开口…");
+        Ui.toast(requireContext(), "TA 正在开口…", FriendlyToast.Type.INFO);
         VoiceApi.synthesize(text, VoiceApi.cachedVoice(), new Rest.Callback<String>() {
             @Override
             public void ok(String base64) {
+                playingText = text;
                 playMp3(base64);
             }
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "语音合成失败：" + message);
+                Ui.toast(requireContext(), "语音合成失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -540,10 +559,25 @@ public class ChatFragment extends Fragment {
                 });
                 player.prepare();
                 player.start();
+                playingVoice = true;
+                playingText = textOfLastAssistant();
+                if (adapter != null) {
+                    adapter.notifyDataSetChanged();
+                }
             } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败，请稍后再试");
+                Ui.toast(requireContext(), "播放失败，请稍后再试", FriendlyToast.Type.ERROR);
             }
         });
+    }
+
+    private String textOfLastAssistant() {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            ChatMessage m = messages.get(i);
+            if (m.role == ChatMessage.Role.ASSISTANT && m.kind == ChatMessage.Kind.TEXT && !m.text.isEmpty()) {
+                return m.text;
+            }
+        }
+        return playingText;
     }
 
     private void releasePlayer() {
@@ -555,6 +589,12 @@ public class ChatFragment extends Fragment {
         } catch (Exception ignored) {
         }
         player = null;
+        if (playingVoice) {
+            playingVoice = false;
+            if (adapter != null) {
+                adapter.notifyDataSetChanged();
+            }
+        }
     }
 
     @Override
@@ -641,7 +681,32 @@ public class ChatFragment extends Fragment {
                     }
                     return true;
                 });
-                bubble.addView(tv);
+                if (m.role == ChatMessage.Role.ASSISTANT && m.kind == ChatMessage.Kind.TEXT && !m.text.isEmpty()) {
+                    // QQ 式语音播放按钮：点击播放/停止 TA 的这条回复
+                    LinearLayout msgRow = new LinearLayout(row.getContext());
+                    msgRow.setOrientation(LinearLayout.HORIZONTAL);
+                    msgRow.setGravity(Gravity.CENTER_VERTICAL);
+
+                    TextView playBtn = new TextView(row.getContext());
+                    playBtn.setText(playingVoice && m.text.equals(playingText) ? "■" : "▶");
+                    playBtn.setTextSize(13);
+                    playBtn.setTextColor(0xFFFFFFFF);
+                    playBtn.setGravity(Gravity.CENTER);
+                    playBtn.setBackground(playingVoice && m.text.equals(playingText)
+                            ? Ui.circle(0xFF2EC4B6) : Ui.circle(0xFF7256FF));
+                    LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(
+                            Ui.dp(row.getContext(), 34), Ui.dp(row.getContext(), 34));
+                    playLp.rightMargin = Ui.dp(row.getContext(), 6);
+                    playBtn.setLayoutParams(playLp);
+                    Ui.pressScale(playBtn);
+                    playBtn.setOnClickListener(v -> toggleVoice(m.text));
+                    msgRow.addView(playBtn);
+
+                    msgRow.addView(tv);
+                    bubble.addView(msgRow);
+                } else {
+                    bubble.addView(tv);
+                }
             }
 
             TextView time = new TextView(row.getContext());

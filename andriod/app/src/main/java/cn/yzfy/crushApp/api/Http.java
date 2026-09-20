@@ -27,7 +27,7 @@ public final class Http {
             String token = AuthApi.getToken();
             if (token != null && !token.isEmpty()) {
                 Request.Builder builder = original.newBuilder()
-                        .header("satoken", token);
+                        .header("Authorization", token);
                 return chain.proceed(builder.build());
             }
             return chain.proceed(original);

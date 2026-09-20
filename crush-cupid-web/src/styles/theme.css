@@ -596,4 +596,51 @@ a:hover {
   .ant-card-body {
     padding: 16px !important;
   }
+
+  /* 弹窗表单在窄屏下 label 自动换行，避免挤压 */
+  .ant-modal {
+    max-width: 96vw;
+    top: 24px;
+    padding-bottom: 0;
+  }
+  .ant-modal .ant-modal-content {
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+  .ant-modal .ant-form-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ant-modal .ant-form-item-label,
+  .ant-modal .ant-form-item-label > label {
+    height: auto;
+    line-height: 22px;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin-bottom: 2px;
+    justify-content: flex-start;
+  }
+  .ant-modal .ant-form-item-control {
+    width: 100% !important;
+    flex: none;
+    max-width: 100%;
+  }
+  .ant-modal .ant-col-16,
+  .ant-modal .ant-col-17,
+  .ant-modal .ant-col-offset-2 {
+    max-width: 100% !important;
+    flex: none;
+    width: 100% !important;
+  }
+  .ant-modal .ant-form-item-label .ant-col-6 {
+    max-width: 100%;
+  }
+
+  .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .ant-space {
+    flex-wrap: wrap;
+  }
 }

@@ -1,5 +1,6 @@
 package cn.yzfy.crushcupidserver.logic;
 
+import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.RandomUtil;
@@ -269,7 +270,10 @@ public class AuthLogic {
 
     private long requireLoginId() {
         if (!StpUtil.isLogin()) {
-            throw BizException.unauthorized("请先登录");
+            // 必须抛 NotLoginException（而非 BizException）：GlobalExceptionHandler 只有
+            // 处理 NotLoginException 才返回 HTTP 401；抛 BizException 只会返回 HTTP 200 + body.code，
+            // 前端拦截器依赖 HTTP 状态码登出，会导致「登录过期却卡在页面」。
+            throw new NotLoginException(NotLoginException.NOT_TOKEN, StpUtil.TYPE, "请先登录");
         }
         return StpUtil.getLoginIdAsLong();
     }

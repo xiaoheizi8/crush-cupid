@@ -15,37 +15,9 @@
         class="app-menu"
         @click="onMenuClick"
       >
-        <a-menu-item key="/chat">
-          <span class="menu-icon">💬</span>
-          <span>{{ t('nav.chat') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/advisor">
-          <span class="menu-icon">🧠</span>
-          <span>{{ t('nav.advisor') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/crush">
-          <span class="menu-icon">💞</span>
-          <span>{{ t('nav.crush') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/skill">
-          <span class="menu-icon">📚</span>
-          <span>{{ t('nav.skill') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/ai-provider">
-          <span class="menu-icon">⚙️</span>
-          <span>{{ t('nav.aiProvider') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/user">
-          <span class="menu-icon">👤</span>
-          <span>{{ t('nav.user') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/voice">
-          <span class="menu-icon">🎙️</span>
-          <span>{{ t('nav.voice') }}</span>
-        </a-menu-item>
-        <a-menu-item key="/versions">
-          <span class="menu-icon">📜</span>
-          <span>{{ t('nav.versions') }}</span>
+        <a-menu-item v-for="item in navItems" :key="item.key">
+          <span class="menu-icon">{{ item.icon }}</span>
+          <span>{{ t(item.i18nKey) }}</span>
         </a-menu-item>
       </a-menu>
       <div class="lang-switcher">
@@ -58,6 +30,56 @@
       </div>
       <div v-else class="sider-footer">made with 💗</div>
     </a-layout-sider>
+
+    <!-- 移动端顶栏 -->
+    <div class="app-topbar">
+      <div class="app-topbar__left">
+        <div class="app-topbar__icon">💘</div>
+        <div class="app-topbar__title">Cupid</div>
+      </div>
+      <div class="app-topbar__right">
+        <a-button type="text" size="small" class="app-topbar__lang" @click="switchLang">
+          {{ locale === 'zh-CN' ? 'EN' : '中' }}
+        </a-button>
+        <a-button type="text" class="app-topbar__burger" @click="drawerOpen = true" aria-label="菜单">
+          ☰
+        </a-button>
+      </div>
+    </div>
+
+    <!-- 移动端抽屉菜单 -->
+    <a-drawer
+      v-model:open="drawerOpen"
+      placement="left"
+      :width="280"
+      class="app-drawer-wrap"
+    >
+      <div class="drawer-inner">
+        <div class="drawer-logo">
+          <div class="drawer-logo__icon">💘</div>
+          <div class="drawer-logo__text">
+            <div class="drawer-logo__name">Cupid</div>
+            <div class="drawer-logo__sub">{{ t('nav.subtitle') }}</div>
+          </div>
+        </div>
+        <a-menu
+          v-model:selectedKeys="selectedKeys"
+          mode="inline"
+          class="drawer-menu"
+          @click="onDrawerMenuClick"
+        >
+          <a-menu-item v-for="item in navItems" :key="item.key">
+            <span class="menu-icon">{{ item.icon }}</span>
+            <span>{{ t(item.i18nKey) }}</span>
+          </a-menu-item>
+        </a-menu>
+        <div v-if="user" class="drawer-user">
+          <div class="drawer-user__name">{{ user.username }}</div>
+          <div class="drawer-user__email">{{ user.email }}</div>
+          <a-button block class="drawer-user__btn" @click="handleLogout">{{ t('common.logout') }}</a-button>
+        </div>
+      </div>
+    </a-drawer>
 
     <a-layout class="app-main">
       <a-layout-content class="app-content">
@@ -79,6 +101,18 @@ const route = useRoute()
 const router = useRouter()
 const user = ref<{ username: string; email: string } | null>(null)
 const selectedKeys = ref([route.path])
+const drawerOpen = ref(false)
+
+const navItems = [
+  { key: '/chat', icon: '💬', i18nKey: 'nav.chat' },
+  { key: '/advisor', icon: '🧠', i18nKey: 'nav.advisor' },
+  { key: '/crush', icon: '💞', i18nKey: 'nav.crush' },
+  { key: '/skill', icon: '📚', i18nKey: 'nav.skill' },
+  { key: '/ai-provider', icon: '⚙️', i18nKey: 'nav.aiProvider' },
+  { key: '/user', icon: '👤', i18nKey: 'nav.user' },
+  { key: '/voice', icon: '🎙️', i18nKey: 'nav.voice' },
+  { key: '/versions', icon: '📜', i18nKey: 'nav.versions' },
+]
 
 onMounted(async () => {
   try {
@@ -95,6 +129,12 @@ watch(route, () => {
 
 function onMenuClick({ key }: { key: string }) {
   selectedKeys.value = [key]
+  router.push(key)
+}
+
+function onDrawerMenuClick({ key }: { key: string }) {
+  selectedKeys.value = [key]
+  drawerOpen.value = false
   router.push(key)
 }
 
@@ -218,26 +258,32 @@ async function handleLogout() {
   z-index: 1;
 }
 
-.app-menu .ant-menu-item {
+.app-menu.ant-menu-dark .ant-menu-item {
   border-radius: var(--cupid-radius-sm);
   margin: 3px 0 !important;
   height: 42px;
   line-height: 42px;
-  color: rgba(255, 255, 255, 0.65) !important;
+  color: #fff !important;
   transition: all var(--cupid-transition);
 }
-
-.app-menu .ant-menu-item:hover {
-  background: rgba(196, 78, 200, 0.12) !important;
+.app-menu.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(196, 78, 200, 0.18) !important;
   color: #fff !important;
   transform: translateX(2px);
 }
-
-.app-menu .ant-menu-item-selected {
+.app-menu.ant-menu-dark .ant-menu-item-selected {
   background: var(--cupid-gradient) !important;
   color: #fff !important;
   box-shadow: 0 4px 16px rgba(196, 78, 200, 0.45);
   font-weight: 500;
+}
+
+/* 任何 antd 深色主题默认样式都不可能盖掉最亮的白字 */
+.app-menu.ant-menu-dark .ant-menu-item .ant-menu-title-content {
+  color: #fff !important;
+}
+.app-menu.ant-menu-dark .ant-menu-item-selected .ant-menu-title-content {
+  color: #fff !important;
 }
 
 .menu-icon {
@@ -305,6 +351,7 @@ async function handleLogout() {
 
 .app-main {
   background: var(--cupid-bg-page);
+  min-width: 0;
 }
 
 .app-content {
@@ -312,5 +359,163 @@ async function handleLogout() {
   height: 100vh;
   overflow: hidden;
   background-image: var(--cupid-gradient-mesh);
+}
+
+/* 移动端顶栏（桌面隐藏） */
+.app-topbar {
+  display: none;
+}
+
+/* 抽屉菜单：antd Drawer 使用 teleport 渲染到 body，.app-drawer-wrap 与 .ant-drawer-content 非 DOM 父子，需用同级选择器 */
+.ant-drawer.app-drawer-wrap .ant-drawer-content {
+  background: linear-gradient(180deg, #140a2e 0%, #1e1248 40%, #2d1b4e 100%);
+}
+.ant-drawer.app-drawer-wrap .ant-drawer-content-wrapper {
+  background: transparent;
+}
+.ant-drawer.app-drawer-wrap .ant-drawer-body {
+  background: transparent;
+  padding: 0;
+}
+.drawer-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.drawer-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 8px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.drawer-logo__icon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cupid-radius-sm);
+  background: var(--cupid-gradient);
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(196, 78, 200, 0.5);
+}
+.drawer-logo__name {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+.drawer-logo__sub {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.drawer-menu {
+  flex: 1;
+  background: transparent !important;
+  border-right: none !important;
+}
+.drawer-menu .ant-menu-item {
+  border-radius: var(--cupid-radius-sm);
+  margin: 3px 0 !important;
+  height: 42px;
+  line-height: 42px;
+  color: #fff !important;
+}
+.drawer-menu .ant-menu-item:hover {
+  background: rgba(196, 78, 200, 0.18) !important;
+  color: #fff !important;
+}
+.drawer-menu .ant-menu-item-selected {
+  background: var(--cupid-gradient) !important;
+  color: #fff !important;
+  box-shadow: 0 4px 16px rgba(196, 78, 200, 0.45);
+}
+.drawer-menu .ant-menu-item .ant-menu-title-content {
+  color: #fff !important;
+}
+.drawer-menu .ant-menu-item-selected .ant-menu-title-content {
+  color: #fff !important;
+}
+.drawer-user {
+  padding: 16px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.drawer-user__name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.drawer-user__email {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.drawer-user__btn {
+  margin-top: 12px;
+  background: rgba(255, 90, 122, 0.2);
+  border-color: rgba(255, 90, 122, 0.4);
+  color: #fff;
+  border-radius: var(--cupid-radius-sm);
+}
+.drawer-user__btn:hover {
+  background: rgba(255, 90, 122, 0.35);
+  border-color: var(--cupid-primary);
+  color: #fff;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  /* 强制根布局为纵向：覆盖 ant-layout-has-sider 的 row 方向 */
+  .app-layout {
+    height: 100vh;
+    height: 100dvh;
+    flex-direction: column !important;
+  }
+  .app-sider {
+    display: none !important;
+  }
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    flex-shrink: 0;
+    padding: 0 8px 0 14px;
+    background: linear-gradient(180deg, #140a2e 0%, #1e1248 60%, #2d1b4e 100%);
+    z-index: 100;
+  }
+  .app-topbar__left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .app-topbar__icon {
+    font-size: 20px;
+  }
+  .app-topbar__title {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .app-topbar__lang {
+    color: rgba(255, 255, 255, 0.75) !important;
+  }
+  .app-topbar__burger {
+    color: #fff;
+    font-size: 20px;
+  }
+  .app-main {
+    flex: 1;
+    min-height: 0;
+    width: 100% !important;
+    max-width: 100%;
+  }
+  .app-content {
+    height: 100%;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
 }
 </style>

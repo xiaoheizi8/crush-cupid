@@ -102,5 +102,24 @@ defineProps<{
 .page-body {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .page-container {
+    gap: 12px;
+  }
+  .page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .page-header__name {
+    font-size: 16px;
+  }
+  .page-header__extra {
+    flex-wrap: wrap;
+  }
 }
 </style>

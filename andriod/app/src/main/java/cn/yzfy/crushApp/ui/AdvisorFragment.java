@@ -21,6 +21,7 @@ import java.util.List;
 
 import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.ChatApi;
+import cn.yzfy.crushApp.api.CrushApi;
 import cn.yzfy.crushApp.api.GsonFactory;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.api.SkillApi;
@@ -34,6 +35,8 @@ public class AdvisorFragment extends Fragment {
 
     private final List<String> log = new ArrayList<>();
     private Crush crush;
+    private TextView crushChip;
+    private List<Crush> crushes = new ArrayList<>();
     private RecyclerView list;
     private AdvisorMsgAdapter adapter;
     private LinearLayoutManager layoutManager;
@@ -80,6 +83,25 @@ public class AdvisorFragment extends Fragment {
         st.setTextColor(0xFFA5929C);
         nc.addView(st);
         header.addView(nc);
+
+        // 分析对象选择器：军师需要绑定一个暗恋对象，否则 report/strategy 等命令无法执行
+        TextView crushChip = new TextView(ctx);
+        crushChip.setText(crushText());
+        crushChip.setTextSize(12);
+        crushChip.setTextColor(0xFF7256FF);
+        crushChip.setGravity(Gravity.CENTER);
+        crushChip.setBackground(Ui.rounded(0xFFEFEBFF, 999));
+        crushChip.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 6), Ui.dp(ctx, 12), Ui.dp(ctx, 6));
+        crushChip.setOnClickListener(v -> pickCrush(null));
+        Ui.pressScale(crushChip);
+        this.crushChip = crushChip;
+
+        LinearLayout nc2 = new LinearLayout(ctx);
+        nc2.setOrientation(LinearLayout.VERTICAL);
+        nc2.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(nc2);
+        nc2.addView(crushChip, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(header);
 
         // 命令卡片（横向滚动）
@@ -165,17 +187,80 @@ public class AdvisorFragment extends Fragment {
 
             @Override
             public void fail(String message) {
+                Ui.toast(requireContext(), "加载军师功能失败：" + message, FriendlyToast.Type.ERROR, true);
+            }
+        });
+    }
+
+    private String crushText() {
+        return "♡ 对象：" + (crush == null ? "未选择，点此选择" : crush.name);
+    }
+
+    private void refreshCrushChip() {
+        if (crushChip != null) {
+            crushChip.setText(crushText());
+        }
+    }
+
+    private void pickCrush(final Runnable afterPick) {
+        CrushApi.list(new Rest.Callback<List<Crush>>() {
+            @Override
+            public void ok(List<Crush> data) {
+                crushes = data == null ? new ArrayList<>() : data;
+                if (crushes.isEmpty()) {
+                    Ui.toast(requireContext(), "还没有暗恋对象，先去新建一个吧", FriendlyToast.Type.WARN);
+                    return;
+                }
+                String[] names = new String[crushes.size()];
+                int[] checked = {-1};
+                for (int i = 0; i < crushes.size(); i++) {
+                    names[i] = crushes.get(i).name;
+                    if (crush != null && crush.id != null && crush.id.equals(crushes.get(i).id)) {
+                        checked[0] = i;
+                    }
+                }
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("选择分析的暗恋对象")
+                        .setSingleChoiceItems(names, checked[0], (d, which) -> checked[0] = which)
+                        .setPositiveButton("确定", (d, w) -> {
+                            int i = checked[0];
+                            if (i < 0 || i >= crushes.size()) {
+                                return;
+                            }
+                            crush = crushes.get(i);
+                            refreshCrushChip();
+                            Ui.toast(requireContext(), "已切换对象：" + crush.name, FriendlyToast.Type.SUCCESS);
+                            if (afterPick != null) {
+                                afterPick.run();
+                            }
+                        })
+                        .setNegativeButton("取消", null)
+                        .show();
+            }
+
+            @Override
+            public void fail(String message) {
+                Ui.toast(requireContext(), "加载对象失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
 
     private void invoke(AdvisorCommand c) {
         if (streaming) {
-            Ui.toast(requireContext(), "军师正在回复中…");
+            Ui.toast(requireContext(), "军师正在回复中…", FriendlyToast.Type.INFO);
             return;
         }
+        if (c.requiresCrush && crush == null) {
+            Ui.toast(requireContext(), "该功能需要先选择暗恋对象", FriendlyToast.Type.INFO);
+            pickCrush(() -> invokeDirect(c));
+            return;
+        }
+        invokeDirect(c);
+    }
+
+    private void invokeDirect(AdvisorCommand c) {
         String slug = crush == null ? null : crush.slug;
-        Ui.toast(requireContext(), "军师正在处理「" + c.title + "」…");
+        Ui.toast(requireContext(), "军师正在处理「" + c.title + "」…", FriendlyToast.Type.INFO);
         SkillApi.invoke(c.name, "", crush == null || !c.requiresCrush ? null : slug,
                 new Rest.Callback<String>() {
                     @Override
@@ -185,7 +270,7 @@ public class AdvisorFragment extends Fragment {
 
                     @Override
                     public void fail(String message) {
-                        Ui.toast(requireContext(), message, true);
+                        Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
                     }
                 });
     }
@@ -194,6 +279,15 @@ public class AdvisorFragment extends Fragment {
         if (streaming) {
             return;
         }
+        if (crush == null) {
+            Ui.toast(requireContext(), "为获得更懂 TA 的答复，请先选择暗恋对象", FriendlyToast.Type.INFO);
+            pickCrush(() -> askDirect(text));
+            return;
+        }
+        askDirect(text);
+    }
+
+    private void askDirect(String text) {
         input.setText("");
         append("我的问题：" + text);
         streaming = true;
@@ -223,7 +317,7 @@ public class AdvisorFragment extends Fragment {
             public void onError(String message) {
                 streaming = false;
                 flush(sb);
-                Ui.toast(requireContext(), message);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -232,13 +326,15 @@ public class AdvisorFragment extends Fragment {
         log.add(line);
         adapter.notifyItemInserted(log.size() - 1);
         scrollBottom();
-        // 新气泡入场微动画
-        if (layoutManager != null && log.size() > 0) {
-            View v = layoutManager.findViewByPosition(log.size() - 1);
-            if (v != null) {
-                Ui.enter(v, R.anim.item_fade_slide);
+        // 新气泡入场微动画：布局完成后查询新 view 再播放
+        Ui.post(() -> {
+            if (layoutManager != null && log.size() > 0) {
+                View v = layoutManager.findViewByPosition(log.size() - 1);
+                if (v != null) {
+                    Ui.enter(v, R.anim.item_fade_slide);
+                }
             }
-        }
+        });
     }
 
     private void flush(StringBuilder sb) {

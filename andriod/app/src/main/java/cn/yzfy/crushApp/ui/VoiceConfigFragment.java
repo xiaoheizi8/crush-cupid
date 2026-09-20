@@ -20,10 +20,9 @@ import androidx.fragment.app.Fragment;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
-
-import cn.yzfy.crushApp.R;
 import java.util.List;
 
+import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.api.VoiceApi;
 import cn.yzfy.crushApp.model.VoiceConfig;
@@ -178,7 +177,7 @@ public class VoiceConfigFragment extends Fragment {
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -307,7 +306,7 @@ public class VoiceConfigFragment extends Fragment {
 
     private void pickModel() {
         if (models == null || models.isEmpty()) {
-            Ui.toast(requireContext(), "暂无可用模型");
+            Ui.toast(requireContext(), "暂无可用模型", FriendlyToast.Type.WARN);
             return;
         }
         String[] labels = new String[models.size()];
@@ -326,7 +325,7 @@ public class VoiceConfigFragment extends Fragment {
 
     private void select(final VoiceConfig.VoiceOption v) {
         if (v.voiceId == null || v.voiceId.isEmpty()) {
-            Ui.toast(requireContext(), "该音色缺少 voiceId");
+            Ui.toast(requireContext(), "该音色缺少 voiceId", FriendlyToast.Type.WARN);
             return;
         }
         final Dialog dlg = Ui.loading(requireContext(), "保存中…");
@@ -337,13 +336,13 @@ public class VoiceConfigFragment extends Fragment {
                 VoiceApi.cacheVoice(v.voiceId);
                 preferredVoice = v.voiceId;
                 render();
-                Ui.toast(requireContext(), "已设为我的音色");
+                Ui.toast(requireContext(), "已设为我的音色", FriendlyToast.Type.SUCCESS);
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, true);
+                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -358,7 +357,7 @@ public class VoiceConfigFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "试听失败：" + message, true);
+                Ui.toast(requireContext(), "试听失败：" + message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -403,7 +402,7 @@ public class VoiceConfigFragment extends Fragment {
         create.setOnClickListener(v -> {
             String p = prompt.getText().toString().trim();
             if (p.isEmpty()) {
-                Ui.toast(requireContext(), "请先描述想要的声线");
+                Ui.toast(requireContext(), "请先描述想要的声线", FriendlyToast.Type.WARN);
                 return;
             }
             final Dialog dlg = Ui.loading(requireContext(), "生成音色中，约需 10~30 秒…");
@@ -416,7 +415,7 @@ public class VoiceConfigFragment extends Fragment {
                 @Override
                 public void fail(String message) {
                     Ui.dismiss(dlg);
-                    Ui.toast(requireContext(), "声音设计失败：" + message, true);
+                    Ui.toast(requireContext(), "声音设计失败：" + message, FriendlyToast.Type.ERROR, true);
                 }
             });
         });
@@ -432,13 +431,13 @@ public class VoiceConfigFragment extends Fragment {
                 VoiceApi.cacheVoice(voiceId);
                 preferredVoice = voiceId;
                 render();
-                Ui.toast(requireContext(), "专属音色已创建并启用 ✅");
+                Ui.toast(requireContext(), "专属音色已创建并启用 ✅", FriendlyToast.Type.SUCCESS);
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), "音色已生成但保存失败：" + message, true);
+                Ui.toast(requireContext(), "音色已生成但保存失败：" + message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -477,7 +476,7 @@ public class VoiceConfigFragment extends Fragment {
                 player.prepare();
                 player.start();
             } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败，请稍后再试");
+                Ui.toast(requireContext(), "播放失败，请稍后再试", FriendlyToast.Type.ERROR);
             }
         });
     }

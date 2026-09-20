@@ -64,6 +64,9 @@ public class SkillLogic {
 
         SkillAdvisorService.AdvisorDescriptor desc = skillAdvisorService.getDescriptor(name);
         if (desc != null && desc.requiresCrush()) {
+            if (crushSlug == null || crushSlug.isBlank()) {
+                throw BizException.badRequest("请先选择要分析的暗恋对象");
+            }
             return skillReportService.generate(crushSlug);
         }
         return skillAdvisorService.invoke(name, question, null);

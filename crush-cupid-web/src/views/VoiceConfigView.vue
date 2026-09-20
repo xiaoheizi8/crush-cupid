@@ -17,6 +17,12 @@
 
       <!-- 音色选择 -->
       <a-card class="config-card" title="音色选择" :bordered="false">
+        <div class="voice-help">
+          <span>💡 想换别的音色？完整 CosyVoice 音色列表请看参考文档：</span>
+          <a href="https://help.aliyun.com/zh/model-studio/voices" target="_blank" rel="noopener noreferrer">
+            CosyVoice 音色参考 ↗
+          </a>
+        </div>
         <a-form layout="vertical">
           <a-form-item label="偏好音色">
             <a-select
@@ -192,6 +198,24 @@ onMounted(() => {
   color: var(--cupid-text-secondary);
   font-size: 11px;
   margin-left: 6px;
+}
+
+.voice-help {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--cupid-text-secondary);
+  background: var(--cupid-gradient-soft);
+  border: 1px solid var(--cupid-border);
+  border-radius: var(--cupid-radius-sm);
+  padding: 9px 12px;
+  margin-bottom: 16px;
+}
+.voice-help a {
+  color: var(--cupid-primary);
+  font-weight: 600;
 }
 
 .design-result {

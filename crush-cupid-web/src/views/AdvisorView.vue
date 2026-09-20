@@ -4,7 +4,7 @@
     <div class="advisor-page">
       <a-row :gutter="20" class="advisor-row">
         <!-- 左侧：crush 选择 + 报告入口 -->
-        <a-col :span="6">
+        <a-col :xs="24" :md="6">
           <div class="side-card">
             <div class="side-card__title">选择暗恋对象</div>
             <a-select
@@ -31,7 +31,7 @@
         </a-col>
 
         <!-- 右侧：军师对话区 -->
-        <a-col :span="18" class="advisor-col">
+        <a-col :xs="24" :md="18" class="advisor-col">
           <div class="chat-card">
             <div class="chat-card__head">
               <div class="chat-card__title">
@@ -106,7 +106,7 @@
       <a-modal
         v-model:open="reportOpen"
         :title="`📚 关系报告 · ${currentName}`"
-        width="760"
+        width="min(760px, 96vw)"
         :footer="null"
       >
         <div class="report-body">
@@ -148,7 +148,7 @@
       <a-modal
         v-model:open="detailOpen"
         :title="'📑 报告详情'"
-        width="780"
+        width="min(780px, 96vw)"
         :footer="null"
       >
         <a-spin :spinning="detailBusy">
@@ -669,5 +669,33 @@ onMounted(() => {
 .report-history__ops {
   display: flex;
   gap: 6px;
+}
+
+/* 移动端：聊天卡片固定高度支持内部滚动 */
+@media (max-width: 768px) {
+  .advisor-page,
+  .advisor-row {
+    height: auto;
+  }
+  .advisor-col {
+    height: 62vh;
+  }
+  .advisor-col .chat-card {
+    min-height: 100%;
+  }
+  .side-card {
+    padding: 16px 18px;
+    gap: 10px;
+  }
+  .messages {
+    padding: 12px 14px;
+  }
+  .input-row {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  .input-row .send-btn {
+    min-width: 76px;
+  }
 }
 </style>
