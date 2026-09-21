@@ -56,7 +56,14 @@ public final class Rest {
                 try {
                     String text = response.body() == null ? "" : response.body().string();
                     if (!response.isSuccessful()) {
-                        main(() -> cb.fail(extractMsg(text, "请求失败 HTTP " + response.code())));
+                        final int code = response.code();
+                        final String msg = extractMsg(text, "请求失败 HTTP " + code);
+                        main(() -> {
+                            if (Session.isUnauthorized(code)) {
+                                Session.handleUnauthorized();
+                            }
+                            cb.fail(msg);
+                        });
                         return;
                     }
                     final Result<T> r = GsonFactory.GSON.fromJson(text, type);
@@ -64,6 +71,9 @@ public final class Rest {
                         if (r != null && r.ok()) {
                             cb.ok(r.data);
                         } else {
+                            if (r != null && Session.isUnauthorized(r.code)) {
+                                Session.handleUnauthorized();
+                            }
                             cb.fail(r != null && r.message != null && !r.message.isEmpty() ? r.message : "响应异常");
                         }
                     });

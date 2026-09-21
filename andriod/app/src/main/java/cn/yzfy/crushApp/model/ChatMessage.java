@@ -31,6 +31,14 @@ public class ChatMessage {
         return m;
     }
 
+    public static ChatMessage sticker(Role role, String url) {
+        ChatMessage m = new ChatMessage();
+        m.role = role;
+        m.kind = Kind.STICKER;
+        m.imageUrl = url;
+        return m;
+    }
+
     public String timeLabel() {
         return String.format(java.util.Locale.getDefault(), "%1$tH:%1$tM", new java.util.Date(ts));
     }

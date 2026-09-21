@@ -3,7 +3,9 @@
 > *"每一支射出的箭，都是一次未说出口的喜欢。"*
 
 **把暗恋蒸馏成 AI 引擎 —— 通过 GitHub 远端的 Skill，生成一个真正像 ta 的智能 agent。**
-
+ 
+**体验地址：http://8.156.80.218:1314/#/login**
+![img_3.png](img_3.png)
 [![Java 17](https://img.shields.io/badge/Java-17-blue.svg)](https://www.oracle.com/java/)
 [![Spring Boot 3.5](https://img.shields.io/badge/Spring%20Boot-3.5-green.svg)](https://spring.io/projects/spring-boot)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-1.1.2-purple.svg)](https://spring.io/projects/spring-ai)

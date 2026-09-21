@@ -51,6 +51,10 @@ public final class ChatApi {
     }
 
     public static String encode(String s) {
-        return java.net.URLEncoder.encode(s == null ? "" : s, java.nio.charset.StandardCharsets.UTF_8);
+        try {
+            return java.net.URLEncoder.encode(s == null ? "" : s, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -350,9 +350,7 @@ public class CrushDetailFragment extends Fragment {
     }
 
     private void pickPhoto() {
-        picker.launch(new PickVisualMediaRequest.Builder()
-                .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                .build());
+        picker.launch(new PickVisualMediaRequest.Builder().build());
     }
 
     private void importText(String text) {

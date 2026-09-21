@@ -19,7 +19,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +32,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.ChatApi;
@@ -72,7 +73,7 @@ public class ChatFragment extends Fragment {
     private String pickedMime;
     private MediaPlayer player;
 
-    private ActivityResultLauncher<PickVisualMediaRequest> pickMediaLauncher;
+    private ActivityResultLauncher<String> pickMediaLauncher;
 
     private static final Handler UI = new Handler(Looper.getMainLooper());
 
@@ -233,17 +234,15 @@ public class ChatFragment extends Fragment {
     }
 
     private void pickImage() {
-        pickMediaLauncher.launch(
-                new PickVisualMediaRequest.Builder()
-                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
-                        .build());
+        // 用 GetContent + image/* 只选图片；避免 PickVisualMedia.ImageOnly 在不同 activity 版本间 API 不兼容
+        pickMediaLauncher.launch("image/*");
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         pickMediaLauncher = registerForActivityResult(
-                new ActivityResultContracts.PickVisualMedia(), uri -> {
+                new ActivityResultContracts.GetContent(), uri -> {
                     if (uri == null) return;
                     handlePicked(uri);
                 });
@@ -476,17 +475,10 @@ public class ChatFragment extends Fragment {
                     messages.clear();
                     if (data != null) {
                         for (ChatHistory h : data) {
-                            if ("user".equals(h.role) || "assistant".equals(h.role)) {
-                                if (h.mediaUrl != null && !h.mediaUrl.isEmpty()) {
-                                    messages.add(ChatMessage.image(
-                                            "user".equals(h.role) ? ChatMessage.Role.USER : ChatMessage.Role.ASSISTANT,
-                                            h.mediaUrl));
-                                }
-                                if (h.content != null && !h.content.trim().isEmpty()) {
-                                    messages.add(ChatMessage.text(
-                                            "user".equals(h.role) ? ChatMessage.Role.USER : ChatMessage.Role.ASSISTANT,
-                                            h.content));
-                                }
+                            if ("user".equals(h.role)) {
+                                appendUserHistory(h);
+                            } else if ("assistant".equals(h.role)) {
+                                appendAssistantHistory(h.content);
                             }
                         }
                     }
@@ -500,6 +492,101 @@ public class ChatFragment extends Fragment {
                 Ui.toast(requireContext(), "加载历史失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
+    }
+
+    // ---- 历史消息格式处理：与 web 端 ChatView.loadHistory 保持一致 ----
+
+    /** 多条消息分隔符，与后端 MessageSeparator.SEPARATOR 对齐 */
+    private static final String MSG_SEP = "|||";
+    /** 表情包标记 [[sticker:...]]（URL 或情绪词） */
+    private static final Pattern STICKER_MARK = Pattern.compile("\\[\\[sticker:([^\\]]*)\\]\\]");
+    /** 裸表情包 URL：ChineseBQB CDN/raw 链接前缀 */
+    private static final Pattern STICKER_CDN = Pattern.compile(
+            "^https?://\\S*(?:cdn\\.jsdelivr\\.net/gh/zhaoolee/ChineseBQB|raw\\.githubusercontent\\.com/zhaoolee/ChineseBQB|github\\.com/zhaoolee/ChineseBQB)\\S*",
+            Pattern.CASE_INSENSITIVE);
+    /** 裸表情包 URL：以图片扩展名结尾的 http(s) 链接 */
+    private static final Pattern STICKER_EXT = Pattern.compile(
+            "^https?://\\S+\\.(?:png|jpe?g|gif|webp)(?:\\?\\S*)?$",
+            Pattern.CASE_INSENSITIVE);
+
+    /** 用户消息历史：图片气泡（mediaUrl）+ 清洗图片标记后的文本 */
+    private void appendUserHistory(ChatHistory h) {
+        if (h.mediaUrl != null && !h.mediaUrl.isEmpty()) {
+            messages.add(ChatMessage.image(ChatMessage.Role.USER, h.mediaUrl));
+        }
+        String text = cleanMediaMarkers(h.content);
+        if (!text.isEmpty()) {
+            messages.add(ChatMessage.text(ChatMessage.Role.USER, text));
+        }
+    }
+
+    /** 清洗用户消息里的图片占位残留：[[图片:URL]] 与 [图片]（后端已清，这里兜底） */
+    private String cleanMediaMarkers(String s) {
+        if (s == null) return "";
+        return s.replaceAll("\\[\\[图片:[^\\]]*\\]\\]", "").replace("[图片]", "").trim();
+    }
+
+    /** assistant 历史：按 ||| 切多条，逐条解析表情包标记 */
+    private void appendAssistantHistory(String content) {
+        if (content == null || content.trim().isEmpty()) return;
+        if (content.contains(MSG_SEP)) {
+            for (String seg : content.split(Pattern.quote(MSG_SEP))) {
+                appendAssistantSegment(seg);
+            }
+        } else {
+            appendAssistantSegment(content);
+        }
+    }
+
+    /** 单条 assistant 文本：提取 [[sticker:URL]] 为表情包气泡，剩余文本走文本气泡（裸 URL 兜底转表情包） */
+    private void appendAssistantSegment(String seg) {
+        StickerParse p = parseStickerMark(seg);
+        for (String url : p.stickers) {
+            messages.add(ChatMessage.sticker(ChatMessage.Role.ASSISTANT, url));
+        }
+        String text = p.text;
+        if (text.isEmpty()) return;
+        if (isStickerUrl(text)) {
+            messages.add(ChatMessage.sticker(ChatMessage.Role.ASSISTANT, text));
+        } else {
+            messages.add(ChatMessage.text(ChatMessage.Role.ASSISTANT, text));
+        }
+    }
+
+    /** [[sticker:...]] 解析结果：http 开头的才是图片 URL；其余（情绪词）只清标记不渲染 */
+    private static class StickerParse {
+        final List<String> stickers = new ArrayList<>();
+        String text = "";
+    }
+
+    private StickerParse parseStickerMark(String s) {
+        StickerParse r = new StickerParse();
+        if (s == null) return r;
+        Matcher m = STICKER_MARK.matcher(s);
+        StringBuffer sb = new StringBuffer();
+        while (m.find()) {
+            String url = m.group(1);
+            if (url != null && url.startsWith("http")) {
+                r.stickers.add(url);
+            }
+            m.appendReplacement(sb, "");
+        }
+        m.appendTail(sb);
+        r.text = sb.toString()
+                .replace("[表情包]", "")
+                .replace("(此处发表了一个表情包)", "")
+                .trim();
+        return r;
+    }
+
+    /** 整条文本是否就是一张表情包图片地址（与 web 端 isStickerUrl 镜像） */
+    private boolean isStickerUrl(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        if (t.isEmpty()) return false;
+        if (t.startsWith("/api/stickers/")) return true;
+        if (STICKER_CDN.matcher(t).find()) return true;
+        return STICKER_EXT.matcher(t).matches();
     }
 
     /** 把最新一条 assistant 文本合成为语音播放 */

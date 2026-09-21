@@ -350,6 +350,7 @@ public class LoginFragment extends Fragment {
             @Override
             public void ok(LoginVO data) {
                 AuthApi.saveToken(data.tokenValue);
+                Ui.toast(requireContext(), "欢迎回来，开启心动之旅 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new HomeFragment());
             }
 
@@ -383,6 +384,7 @@ public class LoginFragment extends Fragment {
             @Override
             public void ok(LoginVO data) {
                 AuthApi.saveToken(data.tokenValue);
+                Ui.toast(requireContext(), "注册成功，欢迎加入 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new HomeFragment());
             }
 

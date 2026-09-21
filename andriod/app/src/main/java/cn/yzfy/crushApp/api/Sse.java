@@ -52,7 +52,12 @@ public final class Sse {
                     }
                     final String errText = text;
                     final int code = response.code();
-                    main(() -> l.onError(Rest.extractMsg(errText, "请求失败 HTTP " + code)));
+                    main(() -> {
+                        if (Session.isUnauthorized(code)) {
+                            Session.handleUnauthorized();
+                        }
+                        l.onError(Rest.extractMsg(errText, "请求失败 HTTP " + code));
+                    });
                     return;
                 }
                 try (BufferedSource src = response.body().source()) {

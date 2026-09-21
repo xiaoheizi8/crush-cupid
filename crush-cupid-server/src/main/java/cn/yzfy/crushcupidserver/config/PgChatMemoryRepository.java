@@ -80,7 +80,8 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
             // 读取时按归属用户解密：存量明文/历史全局密钥由 UserChatCipher 兜底
             String content = userChatCipher.decryptForUser(row.getContent(), key.userId());
             Message msg = toMessage(row.getRole(), content);
-            if (msg != null) {
+            // 主动消息的「系统元指令」是内部触发语，不回显、不注入 prompt（历史清洗，兼容存量脏数据）
+            if (msg != null && !isProactiveMeta(msg)) {
                 messages.add(msg);
             }
         }
@@ -121,6 +122,10 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
         List<Conversation> rows = new ArrayList<>(messages.size());
         Date now = new Date();
         for (Message msg : messages) {
+            // 主动消息的「系统元指令」是内部触发语，不作为用户消息落库，避免污染消息列表（历史回显）
+            if (isProactiveMeta(msg)) {
+                continue;
+            }
             Conversation row = new Conversation();
             row.setCrushId(key.crushId());
             row.setUserId(key.userId());
@@ -156,11 +161,13 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
             String body = conversationId.startsWith(USER_PREFIX + ":")
                     ? conversationId.substring(USER_PREFIX.length() + 1)
                     : conversationId.substring(USER_PREFIX.length());
-            int sep = body.indexOf(CONV_PREFIX);
+            // body 形如 "{userId}:crush:{crushId}"，分隔符是 ":crush:"（含冒号），
+            // 否则用 "crush:" 会把 userId 结尾的冒号一并切进 Long.parseLong 导致 NumberFormatException。
+            int sep = body.indexOf(":" + CONV_PREFIX);
             if (sep > 0) {
                 try {
                     long userId = Long.parseLong(body.substring(0, sep));
-                    long crushId = Long.parseLong(body.substring(sep + CONV_PREFIX.length()));
+                    long crushId = Long.parseLong(body.substring(sep + 1 + CONV_PREFIX.length()));
                     return new ConvKey(userId, crushId);
                 } catch (NumberFormatException e) {
                     return null;
@@ -173,8 +180,22 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
             try {
                 return new ConvKey(0L, Long.parseLong(conversationId.substring(CONV_PREFIX.length())));
             } catch (NumberFormatException e) {
-                return null;
+                // 落入下方兜底
             }
+        }
+        // 兜底（保证记忆永不因格式无法解析而丢弃）：用正则提取全部数字，
+        // 最后一个数字=crushId，倒数第二个数字=userId（仅一个时按共享桶 0）。
+        // 覆盖 "u4:crush:7"、"u:4:crush:7"、"crush:7" 以及任何含数字的变体。
+        java.util.regex.Matcher nm = java.util.regex.Pattern.compile("\\d+").matcher(conversationId);
+        long[] nums = new long[8];
+        int cnt = 0;
+        while (nm.find() && cnt < nums.length) {
+            nums[cnt++] = Long.parseLong(nm.group());
+        }
+        if (cnt >= 1) {
+            long crushId = nums[cnt - 1];
+            long userId = cnt >= 2 ? nums[cnt - 2] : 0L;
+            return new ConvKey(userId, crushId);
         }
         return null;
     }
@@ -190,6 +211,15 @@ public class PgChatMemoryRepository implements ChatMemoryRepository {
             case SYSTEM -> "system";
             case TOOL -> "tool";
         };
+    }
+
+    /**
+     * 是否为主动消息的内部元指令（{@link cn.yzfy.crushcupidserver.agent.CupidAgent#PROACTIVE_META_PREFIX}）。
+     * 这类「系统原指令」只用于触发模型主动发言，不是用户真实消息，读写两侧都应过滤。
+     */
+    private boolean isProactiveMeta(Message msg) {
+        return msg instanceof UserMessage && msg.getText() != null
+                && msg.getText().startsWith(cn.yzfy.crushcupidserver.agent.CupidAgent.PROACTIVE_META_PREFIX);
     }
 
     /** 表中 role 字段 -> Message 实例。tool 消息无对应类，跳过返回 null（不渲染） */

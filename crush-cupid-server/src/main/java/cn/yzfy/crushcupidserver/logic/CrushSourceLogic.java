@@ -3,6 +3,7 @@ package cn.yzfy.crushcupidserver.logic;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.yzfy.crushcupidserver.agent.CrushBuildService;
+import cn.yzfy.crushcupidserver.agent.ImageUnderstandingService;
 import cn.yzfy.crushcupidserver.agent.OcrService;
 import cn.yzfy.crushcupidserver.agent.SourceAnalysisService;
 import cn.yzfy.crushcupidserver.common.DocumentTextExtractor;
@@ -52,6 +53,7 @@ public class CrushSourceLogic {
     private final CrushVersionService crushVersionService;
     private final CrushBuildService crushBuildService;
     private final OcrService ocrService;
+    private final ImageUnderstandingService imageUnderstandingService;
     private final SourceAnalysisService sourceAnalysisService;
     private final OwnershipGuard ownershipGuard;
     private final ObjectMapper objectMapper;
@@ -85,13 +87,23 @@ public class CrushSourceLogic {
         boolean image = isImage(file);
         String content;
         try {
-            if (image && ocrService.available()) {
-                // 图片 + OCR 已配置：走百炼 MCP OCR 提取文字
-                content = ocrService.recognize(readFileBytes(file));
+            if (image) {
+                // 图片：优先视觉模型理解（qwen-vl / qwen-native 等直传图片），OCR 兜底提取文字
+                byte[] bytes = readFileBytes(file);
+                String vision = imageUnderstandingService.understand(bytes, file.getContentType(), crush);
+                if (StrUtil.isNotBlank(vision)) {
+                    content = vision;
+                } else if (ocrService.available()) {
+                    content = ocrService.recognize(bytes);
+                } else {
+                    throw new BizException("图片解析失败：未配置视觉模型或 OCR");
+                }
             } else {
                 // 文档（pdf/docx）走专用解析，其余按文本文件读取
                 content = readFileContent(file);
             }
+        } catch (BizException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("解析文件失败：{}", e.getMessage());
             throw new BizException("解析文件失败，请检查文件格式后重试");

@@ -298,6 +298,13 @@ public class CupidAgent {
     private static final long PROACTIVE_CALL_TIMEOUT_SECONDS = 90;
 
     /**
+     * 主动消息触发用的内部元指令前缀（「系统原指令」）。它只用于让模型主动开口，
+     * 不是用户真实发言，不应作为 user 消息落库/回显——否则会污染消息列表。
+     * {@link cn.yzfy.crushcupidserver.config.PgChatMemoryRepository} 据此在读写两侧过滤。
+     */
+    public static final String PROACTIVE_META_PREFIX = "【系统元指令】";
+
+    /**
      * 带超时的阻塞调用：把 LLM 调用放到 CompletableFuture 上，超时抛 {@link BizException} 而非永久阻塞，
      * 保证调用方（主动消息调度持有信号量）异常路径能及时释放资源。
      */
@@ -329,7 +336,7 @@ public class CupidAgent {
      */
     private String buildProactivePrompt(Crush crush, String contextHint, boolean silent) {
         StringBuilder sb = new StringBuilder();
-        sb.append("【系统元指令】现在不是用户在和你说话，而是请你主动找用户聊天。\n");
+        sb.append(PROACTIVE_META_PREFIX).append("现在不是用户在和你说话，而是请你主动找用户聊天。\n");
         if (silent) {
             sb.append("此刻是自然生活的某个时刻，你想起 ta 了，主动开口说点什么。\n");
         }

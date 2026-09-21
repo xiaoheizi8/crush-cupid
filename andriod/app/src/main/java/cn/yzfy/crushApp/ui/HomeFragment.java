@@ -205,6 +205,7 @@ public class HomeFragment extends Fragment {
         Ui.confirm(requireContext(), "登出", "确定要退出当前账号吗？", "登出", () -> {
             AuthApi.logout(new RestCallback<>(v -> Ui.post(() -> {
                 AuthApi.clearToken();
+                Ui.toast(requireContext(), "已安全退出，期待与你再会 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new cn.yzfy.crushApp.ui.LoginFragment());
             }), e -> Ui.toast(requireContext(), e)));
         });
@@ -279,6 +280,10 @@ public class HomeFragment extends Fragment {
                 showMenu(c);
                 return true;
             });
+            // 行内「编辑」按钮（子视图索引 2：avatar=0, col=1, edit=2, chevron=3）
+            TextView editBtn = (TextView) row.getChildAt(2);
+            editBtn.setOnClickListener(v ->
+                    Nav.push(requireActivity(), CrushEditFragment.class, crushArgs(c)));
         }
 
         @Override
@@ -334,6 +339,21 @@ public class HomeFragment extends Fragment {
 
             row.addView(col);
 
+            // 行内「编辑」入口：与 web 端每行的「编辑」链接对齐，让新增后可直接改属性（含音色）
+            TextView edit = new TextView(ctx);
+            edit.setText("编辑");
+            edit.setTextSize(12);
+            edit.setTextColor(0xFFFF5A7A);
+            edit.setGravity(Gravity.CENTER);
+            edit.setBackground(Ui.rounded(0xFFFFF0F3, 999));
+            edit.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 6), Ui.dp(ctx, 12), Ui.dp(ctx, 6));
+            LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            elp.leftMargin = Ui.dp(ctx, 8);
+            edit.setLayoutParams(elp);
+            Ui.pressScale(edit);
+            row.addView(edit);
+
             TextView chevron = new TextView(ctx);
             chevron.setText("›");
             chevron.setTextSize(26);
@@ -356,8 +376,10 @@ public class HomeFragment extends Fragment {
                         Nav.push(requireActivity(), CrushEditFragment.class, crushArgs(c));
                     } else if (w == 3) {
                         Ui.confirm(requireContext(), "删除", "确定删除「" + c.name + "」吗？", "删除", () ->
-                                CrushApi.delete(c.id, new RestCallback<>(v -> load(),
-                                        e -> Ui.toast(requireContext(), e))));
+                                CrushApi.delete(c.id, new RestCallback<>(v -> {
+                                    Ui.toast(requireContext(), "已删除 ♥", FriendlyToast.Type.SUCCESS);
+                                    load();
+                                }, e -> Ui.toast(requireContext(), e))));
                     }
                 })
                 .show();
