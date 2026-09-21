@@ -256,7 +256,8 @@ public class LoginFragment extends Fragment {
         card.addView(emailRow);
 
         card.addView(label("邮箱验证码"));
-        regCode = input("6 位验证码", InputType.TYPE_CLASS_NUMBER);
+        regCode = input("6 位验证码", InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         card.addView(regCode);
 
         card.addView(label("密码"));
