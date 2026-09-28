@@ -115,6 +115,14 @@
           <a-form-item label="音色ID">
             <a-input v-model:value="form.voiceId" placeholder="CosyVoice voice_id，空则走默认音色" />
           </a-form-item>
+          <a-form-item label="主动消息">
+            <a-switch
+              v-model:checked="form.proactiveEnabled"
+              checked-children="TA 会主动找我"
+              un-checked-children="关闭"
+            />
+            <div class="form-proactive-help">开启后 TA 会在合适的时间主动发来消息（有冷却与频次限制）</div>
+          </a-form-item>
         </a-form>
         <div class="form-voice-help">
           💡 各音色 voice_id 参考：<a href="https://help.aliyun.com/zh/model-studio/voices" target="_blank" rel="noopener noreferrer">CosyVoice 音色参考 ↗</a>
@@ -195,6 +203,7 @@ const form = reactive<CrushCreatePayload>({
   relationshipStatus: '',
   impression: '',
   voiceId: '',
+  proactiveEnabled: false,
 })
 
 /** 重置表单 */
@@ -210,6 +219,7 @@ function resetForm() {
     relationshipStatus: '',
     impression: '',
     voiceId: '',
+    proactiveEnabled: false,
   })
 }
 
@@ -244,6 +254,7 @@ function openEdit(record: Crush) {
     relationshipStatus: record.relationshipStatus ?? '',
     impression: record.impression ?? '',
     voiceId: record.voiceId ?? '',
+    proactiveEnabled: record.proactiveEnabled ?? false,
   })
   modalOpen.value = true
 }
@@ -511,6 +522,12 @@ onMounted(() => {
 .form-voice-help a {
   color: var(--cupid-primary);
   font-weight: 600;
+}
+
+.form-proactive-help {
+  font-size: 12px;
+  color: var(--cupid-text-secondary);
+  margin-top: 4px;
 }
 
 .build-done-btn {

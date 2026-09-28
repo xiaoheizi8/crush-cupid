@@ -26,9 +26,14 @@ public class Crush {
     public Integer totalMessages;
     public String lastChatDate;
     public String voiceId;
+    public Boolean proactiveEnabled;
     public Integer version;
     public String createdAt;
     public String updatedAt;
+
+    public boolean isProactiveEnabled() {
+        return proactiveEnabled != null && proactiveEnabled;
+    }
 
     public String initial() {
         if (name == null || name.isEmpty()) {

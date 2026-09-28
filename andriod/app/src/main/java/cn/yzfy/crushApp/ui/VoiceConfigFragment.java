@@ -1,7 +1,6 @@
 package cn.yzfy.crushApp.ui;
 
 import android.app.Dialog;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -17,8 +16,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,17 +31,20 @@ public class VoiceConfigFragment extends Fragment {
     private List<VoiceConfig.VoiceModel> models;
     private String currentModel;
     private String preferredVoice;
+    private AudioPlayer audio;
 
     private TextView modelText;
     private TextView voiceText;
     private LinearLayout voiceBox;
-    private MediaPlayer player;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         android.content.Context ctx = requireContext();
+        // 试听无需按行展示播放状态，状态回调留空即可
+        audio = new AudioPlayer(ctx, () -> {
+        }, msg -> Ui.toast(VoiceConfigFragment.this, msg, FriendlyToast.Type.ERROR, true));
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -177,7 +177,7 @@ public class VoiceConfigFragment extends Fragment {
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(VoiceConfigFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -306,7 +306,7 @@ public class VoiceConfigFragment extends Fragment {
 
     private void pickModel() {
         if (models == null || models.isEmpty()) {
-            Ui.toast(requireContext(), "暂无可用模型", FriendlyToast.Type.WARN);
+            Ui.toast(VoiceConfigFragment.this, "暂无可用模型", FriendlyToast.Type.WARN);
             return;
         }
         String[] labels = new String[models.size()];
@@ -325,7 +325,7 @@ public class VoiceConfigFragment extends Fragment {
 
     private void select(final VoiceConfig.VoiceOption v) {
         if (v.voiceId == null || v.voiceId.isEmpty()) {
-            Ui.toast(requireContext(), "该音色缺少 voiceId", FriendlyToast.Type.WARN);
+            Ui.toast(VoiceConfigFragment.this, "该音色缺少 voiceId", FriendlyToast.Type.WARN);
             return;
         }
         final Dialog dlg = Ui.loading(requireContext(), "保存中…");
@@ -336,30 +336,19 @@ public class VoiceConfigFragment extends Fragment {
                 VoiceApi.cacheVoice(v.voiceId);
                 preferredVoice = v.voiceId;
                 render();
-                Ui.toast(requireContext(), "已设为我的音色", FriendlyToast.Type.SUCCESS);
+                Ui.toast(VoiceConfigFragment.this, "已设为我的音色", FriendlyToast.Type.SUCCESS);
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(VoiceConfigFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
 
     private void preview(final VoiceConfig.VoiceOption v) {
-        Ui.toast(requireContext(), "正在试听…");
-        VoiceApi.synthesize("嗨，这是我现在的声线，你觉得怎么样？", v.voiceId, new Rest.Callback<String>() {
-            @Override
-            public void ok(String base64) {
-                playMp3(base64);
-            }
-
-            @Override
-            public void fail(String message) {
-                Ui.toast(requireContext(), "试听失败：" + message, FriendlyToast.Type.ERROR, true);
-            }
-        });
+        audio.play("嗨，这是我现在的声线，你觉得怎么样？", v.voiceId);
     }
 
     private View buildDesignCard() {
@@ -402,7 +391,7 @@ public class VoiceConfigFragment extends Fragment {
         create.setOnClickListener(v -> {
             String p = prompt.getText().toString().trim();
             if (p.isEmpty()) {
-                Ui.toast(requireContext(), "请先描述想要的声线", FriendlyToast.Type.WARN);
+                Ui.toast(VoiceConfigFragment.this, "请先描述想要的声线", FriendlyToast.Type.WARN);
                 return;
             }
             final Dialog dlg = Ui.loading(requireContext(), "生成音色中，约需 10~30 秒…");
@@ -415,7 +404,7 @@ public class VoiceConfigFragment extends Fragment {
                 @Override
                 public void fail(String message) {
                     Ui.dismiss(dlg);
-                    Ui.toast(requireContext(), "声音设计失败：" + message, FriendlyToast.Type.ERROR, true);
+                    Ui.toast(VoiceConfigFragment.this, "声音设计失败：" + message, FriendlyToast.Type.ERROR, true);
                 }
             });
         });
@@ -431,13 +420,13 @@ public class VoiceConfigFragment extends Fragment {
                 VoiceApi.cacheVoice(voiceId);
                 preferredVoice = voiceId;
                 render();
-                Ui.toast(requireContext(), "专属音色已创建并启用 ✅", FriendlyToast.Type.SUCCESS);
+                Ui.toast(VoiceConfigFragment.this, "专属音色已创建并启用 ✅", FriendlyToast.Type.SUCCESS);
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), "音色已生成但保存失败：" + message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(VoiceConfigFragment.this, "音色已生成但保存失败：" + message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -458,43 +447,9 @@ public class VoiceConfigFragment extends Fragment {
         return e;
     }
 
-    private void playMp3(final String base64) {
-        Ui.post(() -> {
-            try {
-                releasePlayer();
-                File f = new File(requireContext().getCacheDir(), "voice_" + System.currentTimeMillis() + ".mp3");
-                FileOutputStream fos = new FileOutputStream(f);
-                fos.write(android.util.Base64.decode(base64, android.util.Base64.DEFAULT));
-                fos.close();
-                player = new MediaPlayer();
-                player.setDataSource(f.getAbsolutePath());
-                player.setOnCompletionListener(mp -> releasePlayer());
-                player.setOnErrorListener((mp, w, e) -> {
-                    releasePlayer();
-                    return true;
-                });
-                player.prepare();
-                player.start();
-            } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败，请稍后再试", FriendlyToast.Type.ERROR);
-            }
-        });
-    }
-
-    private void releasePlayer() {
-        try {
-            if (player != null) {
-                if (player.isPlaying()) player.stop();
-                player.release();
-            }
-        } catch (Exception ignored) {
-        }
-        player = null;
-    }
-
     @Override
     public void onDestroyView() {
-        releasePlayer();
+        if (audio != null) audio.release();
         super.onDestroyView();
     }
 }

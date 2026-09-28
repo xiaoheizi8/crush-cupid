@@ -12,12 +12,13 @@ import cn.yzfy.crushcupidserver.service.SysRbacService;
 import cn.yzfy.crushcupidserver.service.SysUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Date;
 import java.util.List;
 
 /**
- * 用户中心业务逻辑：个人资料、配额查看、角色等（本人自助）。
+ * 用户中心业务逻辑：个人资料、头像上传、配额查看、角色等（本人自助）。
  */
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class UserCenterLogic {
     private final QuotaLogic quotaLogic;
     private final CrushService crushService;
     private final SysRbacService sysRbacService;
+    private final UploadLogic uploadLogic;
 
     /** 当前用户资料 */
     public UserVO profile(Long userId) {
@@ -58,6 +60,23 @@ public class UserCenterLogic {
             }
             user.setAvatarUrl(dto.getAvatarUrl());
         }
+        user.setUpdatedAt(new Date());
+        sysUserService.updateById(user);
+        return UserConverter.toVO(user);
+    }
+
+    /**
+     * 上传并更新头像：图片经第三方 OSS 持久化（未启用回退本地磁盘），URL 回写 avatarUrl。
+     *
+     * @return 更新后的用户资料（含新 avatarUrl）
+     */
+    public UserVO updateAvatar(Long userId, MultipartFile file) {
+        SysUser user = sysUserService.getById(userId);
+        if (user == null) {
+            throw BizException.notFound("用户不存在");
+        }
+        String url = uploadLogic.uploadImage(file, "avatar").getUrl();
+        user.setAvatarUrl(url);
         user.setUpdatedAt(new Date());
         sysUserService.updateById(user);
         return UserConverter.toVO(user);

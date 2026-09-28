@@ -1,7 +1,5 @@
 package cn.yzfy.crushApp.ui;
 
-import android.graphics.drawable.GradientDrawable;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,7 +14,6 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -27,8 +24,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +66,7 @@ public class ChatFragment extends Fragment {
 
     private String pickedBase64;
     private String pickedMime;
-    private MediaPlayer player;
+    private AudioPlayer audio;
 
     private ActivityResultLauncher<String> pickMediaLauncher;
 
@@ -83,6 +78,8 @@ public class ChatFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         android.content.Context ctx = requireContext();
         crush = HomeFragment.crushFrom(getArguments());
+        audio = new AudioPlayer(ctx, this::onAudioChanged,
+                msg -> Ui.toast(ChatFragment.this, msg, FriendlyToast.Type.ERROR));
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -252,26 +249,53 @@ public class ChatFragment extends Fragment {
 
     private void handlePicked(Uri uri) {
         try {
-            InputStream is = requireContext().getContentResolver().openInputStream(uri);
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) > 0) {
-                bos.write(buf, 0, n);
-            }
-            is.close();
-            byte[] bytes = bos.toByteArray();
+            byte[] bytes = readAll(requireContext().getContentResolver().openInputStream(uri));
+            bytes = compressForUpload(bytes);
             pickedBase64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
-            pickedMime = requireContext().getContentResolver().getType(uri);
-            if (pickedMime == null) {
-                pickedMime = "image/jpeg";
-            }
+            // 统一压成 JPEG 上传，mime 与实际编码保持一致
+            pickedMime = "image/jpeg";
             previewThumb.setImageBitmap(android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length));
-            previewLabel.setText(String.format("已选图片（%dKB）", bytes.length / 1024));
+            previewLabel.setText(String.format("已选图片（%dKB，已压缩）", bytes.length / 1024));
             previewRow.setVisibility(View.VISIBLE);
         } catch (Exception e) {
-            Ui.toast(requireContext(), "读取图片失败，请换一张重试", FriendlyToast.Type.ERROR);
+            Ui.toast(ChatFragment.this, "读取图片失败，请换一张重试", FriendlyToast.Type.ERROR);
         }
+    }
+
+    /** InputStream → byte[] */
+    private byte[] readAll(InputStream is) throws Exception {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = is.read(buf)) > 0) {
+            bos.write(buf, 0, n);
+        }
+        is.close();
+        return bos.toByteArray();
+    }
+
+    /**
+     * 上传前压缩：长边压到 ≤1280px、JPEG 85%。
+     * 原图整段 base64 直传动辄数 MB，容易超出请求体限制也浪费 vision token。
+     */
+    private byte[] compressForUpload(byte[] raw) {
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, bounds);
+        int sample = 1;
+        while (Math.max(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 1280) {
+            sample *= 2;
+        }
+        android.graphics.BitmapFactory.Options dec = new android.graphics.BitmapFactory.Options();
+        dec.inSampleSize = sample;
+        android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, dec);
+        if (bmp == null) {
+            throw new IllegalArgumentException("图片解码失败");
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, out);
+        bmp.recycle();
+        return out.toByteArray();
     }
 
     private void clearPicked() {
@@ -282,7 +306,7 @@ public class ChatFragment extends Fragment {
 
     private void send() {
         if (streaming) {
-            Ui.toast(requireContext(), "TA 正在回复中，稍等片刻…");
+            Ui.toast(ChatFragment.this, "TA 正在回复中，稍等片刻…");
             return;
         }
         String text = input.getText().toString().trim();
@@ -305,6 +329,7 @@ public class ChatFragment extends Fragment {
         streaming = true;
         indicateStreaming();
         final String slug = crush == null ? "" : crush.slug;
+        closeStream();
         chatHandle = ChatApi.streamChat(slug, text, media, null, false, new Sse.Listener() {
             @Override
             public void onEvent(String data) {
@@ -323,7 +348,7 @@ public class ChatFragment extends Fragment {
             @Override
             public void onError(String message) {
                 endStreaming("·");
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
+                Ui.toast(ChatFragment.this, message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -403,14 +428,15 @@ public class ChatFragment extends Fragment {
     /** 主动对话：让 TA 等不住先找你 */
     private void proactive() {
         if (streaming) {
-            Ui.toast(requireContext(), "TA 正在回复中，稍等片刻…");
+            Ui.toast(ChatFragment.this, "TA 正在回复中，稍等片刻…");
             return;
         }
         if (crush == null) {
             return;
         }
-        Ui.toast(requireContext(), "正在撩 TA，等 TA 主动发消息…");
+        Ui.toast(ChatFragment.this, "正在撩 TA，等 TA 主动发消息…");
         final String slug = crush.slug;
+        closeStream();
         chatHandle = ChatApi.streamProactive(slug, "用户想看看你会不会主动来找我",
                 new Sse.Listener() {
                     @Override
@@ -428,7 +454,7 @@ public class ChatFragment extends Fragment {
 
                     @Override
                     public void onError(String message) {
-                        Ui.toast(requireContext(), message);
+                        Ui.toast(ChatFragment.this, message);
                     }
                 });
     }
@@ -443,7 +469,7 @@ public class ChatFragment extends Fragment {
             public void onEvent(String data) {
                 if (!streaming) {
                     loadHistory(false);
-                    Ui.toast(requireContext(), "💌「" + crush.name + "」主动发来消息",
+                    Ui.toast(ChatFragment.this, "💌「" + crush.name + "」主动发来消息",
                             FriendlyToast.Type.INFO, true, () -> {
                                 if (getView() != null) {
                                     loadHistory(false);
@@ -489,7 +515,7 @@ public class ChatFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "加载历史失败：" + message, FriendlyToast.Type.ERROR);
+                Ui.toast(ChatFragment.this, "加载历史失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -589,106 +615,61 @@ public class ChatFragment extends Fragment {
         return STICKER_EXT.matcher(t).matches();
     }
 
-    /** 把最新一条 assistant 文本合成为语音播放 */
-    private void speakLast() {
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            ChatMessage m = messages.get(i);
-            if (m.role == ChatMessage.Role.ASSISTANT && m.kind == ChatMessage.Kind.TEXT && !m.text.trim().isEmpty()) {
-                speak(m.text);
-                return;
-            }
-        }
-        Ui.toast(requireContext(), "还没有可播放的回复", FriendlyToast.Type.WARN);
+    /** TA 消息左侧的圆形头像（名字首字），点击弹出「查看资料 / 编辑信息」操作条 */
+    private View buildCrushAvatar(android.content.Context ctx) {
+        TextView avatar = Ui.avatar(ctx, crush == null ? "?" : crush.initial(), 0xFFFF5A7A, 36);
+        LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) avatar.getLayoutParams();
+        alp.rightMargin = Ui.dp(ctx, 8);
+        alp.gravity = Gravity.TOP;
+        avatar.setOnClickListener(v -> showCrushActions());
+        Ui.pressScale(avatar);
+        return avatar;
     }
 
-    /** 播放中状态：正在播放的文本与开关标志（供语音按钮显示 ▶/■） */
-    private boolean playingVoice = false;
-    private String playingText = null;
-
-    private void toggleVoice(String text) {
-        if (playingVoice) {
-            releasePlayer();
+    /** 点击 TA 头像后的操作条：查看资料 / 编辑信息 */
+    private void showCrushActions() {
+        if (crush == null || !isAdded()) {
             return;
         }
-        speak(text);
+        String[] labels = {"查看 TA 的资料", "编辑 TA 的信息"};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle(crush.name)
+                .setItems(labels, (d, w) -> {
+                    if (w == 0) {
+                        Nav.push(requireActivity(), CrushDetailFragment.class, HomeFragment.crushArgs(crush));
+                    } else if (w == 1) {
+                        Nav.push(requireActivity(), CrushEditFragment.class, HomeFragment.crushArgs(crush));
+                    }
+                })
+                .show();
     }
 
+    /** 把 assistant 气泡文本合成为语音播放（▶/■ 状态由 AudioPlayer 驱动） */
     private void speak(String text) {
-        Ui.toast(requireContext(), "TA 正在开口…", FriendlyToast.Type.INFO);
-        VoiceApi.synthesize(text, VoiceApi.cachedVoice(), new Rest.Callback<String>() {
-            @Override
-            public void ok(String base64) {
-                playingText = text;
-                playMp3(base64);
-            }
-
-            @Override
-            public void fail(String message) {
-                Ui.toast(requireContext(), "语音合成失败：" + message, FriendlyToast.Type.ERROR);
-            }
-        });
+        Ui.toast(ChatFragment.this, "TA 正在开口…", FriendlyToast.Type.INFO);
+        audio.play(text, VoiceApi.cachedVoice());
     }
 
-    private void playMp3(final String base64) {
-        UI.post(() -> {
-            try {
-                releasePlayer();
-                File f = new File(requireContext().getCacheDir(), "voice_" + System.currentTimeMillis() + ".mp3");
-                FileOutputStream fos = new FileOutputStream(f);
-                fos.write(android.util.Base64.decode(base64, android.util.Base64.DEFAULT));
-                fos.close();
-                player = new MediaPlayer();
-                player.setDataSource(f.getAbsolutePath());
-                player.setOnCompletionListener(mp -> releasePlayer());
-                player.setOnErrorListener((mp, w, e) -> {
-                    releasePlayer();
-                    return true;
-                });
-                player.prepare();
-                player.start();
-                playingVoice = true;
-                playingText = textOfLastAssistant();
-                if (adapter != null) {
-                    adapter.notifyDataSetChanged();
-                }
-            } catch (Exception e) {
-                Ui.toast(requireContext(), "播放失败，请稍后再试", FriendlyToast.Type.ERROR);
-            }
-        });
-    }
-
-    private String textOfLastAssistant() {
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            ChatMessage m = messages.get(i);
-            if (m.role == ChatMessage.Role.ASSISTANT && m.kind == ChatMessage.Kind.TEXT && !m.text.isEmpty()) {
-                return m.text;
-            }
+    /** AudioPlayer 播放状态变化 → 刷新气泡 ▶/■ */
+    private void onAudioChanged() {
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
         }
-        return playingText;
     }
 
-    private void releasePlayer() {
-        try {
-            if (player != null) {
-                if (player.isPlaying()) player.stop();
-                player.release();
-            }
-        } catch (Exception ignored) {
-        }
-        player = null;
-        if (playingVoice) {
-            playingVoice = false;
-            if (adapter != null) {
-                adapter.notifyDataSetChanged();
-            }
+    /** 关闭当前对话流（SSE 句柄防覆盖泄漏） */
+    private void closeStream() {
+        if (chatHandle != null) {
+            chatHandle.close();
+            chatHandle = null;
         }
     }
 
     @Override
     public void onDestroyView() {
-        if (chatHandle != null) chatHandle.close();
+        closeStream();
         if (listenHandle != null) listenHandle.close();
-        releasePlayer();
+        if (audio != null) audio.release();
         super.onDestroyView();
     }
 
@@ -715,6 +696,11 @@ public class ChatFragment extends Fragment {
             LinearLayout row = (LinearLayout) h.itemView;
             row.removeAllViews();
             row.setGravity(m.role == ChatMessage.Role.USER ? Gravity.END : Gravity.START);
+
+            // TA 的消息：左侧显示 crush 头像，点击弹出「查看资料 / 编辑信息」操作条
+            if (m.role == ChatMessage.Role.ASSISTANT) {
+                row.addView(buildCrushAvatar(row.getContext()));
+            }
 
             LinearLayout bubble = new LinearLayout(row.getContext());
             bubble.setOrientation(LinearLayout.VERTICAL);
@@ -769,27 +755,29 @@ public class ChatFragment extends Fragment {
                     return true;
                 });
                 if (m.role == ChatMessage.Role.ASSISTANT && m.kind == ChatMessage.Kind.TEXT && !m.text.isEmpty()) {
-                    // QQ 式语音播放按钮：点击播放/停止 TA 的这条回复
+                    // QQ 式语音播放按钮：点击播放/停止 TA 的这条回复（状态精确到本条文本）
+                    final boolean isThisPlaying = audio.isPlaying() && m.text.equals(audio.playingText());
                     LinearLayout msgRow = new LinearLayout(row.getContext());
                     msgRow.setOrientation(LinearLayout.HORIZONTAL);
                     msgRow.setGravity(Gravity.CENTER_VERTICAL);
 
                     TextView playBtn = new TextView(row.getContext());
-                    playBtn.setText(playingVoice && m.text.equals(playingText) ? "■" : "▶");
+                    playBtn.setText(isThisPlaying ? "■" : "▶");
                     playBtn.setTextSize(13);
                     playBtn.setTextColor(0xFFFFFFFF);
                     playBtn.setGravity(Gravity.CENTER);
-                    playBtn.setBackground(playingVoice && m.text.equals(playingText)
+                    playBtn.setBackground(isThisPlaying
                             ? Ui.circle(0xFF2EC4B6) : Ui.circle(0xFF7256FF));
                     LinearLayout.LayoutParams playLp = new LinearLayout.LayoutParams(
                             Ui.dp(row.getContext(), 34), Ui.dp(row.getContext(), 34));
-                    playLp.rightMargin = Ui.dp(row.getContext(), 6);
+                    // 播放按钮放在消息右侧
+                    playLp.leftMargin = Ui.dp(row.getContext(), 6);
                     playBtn.setLayoutParams(playLp);
                     Ui.pressScale(playBtn);
-                    playBtn.setOnClickListener(v -> toggleVoice(m.text));
-                    msgRow.addView(playBtn);
+                    playBtn.setOnClickListener(v -> audio.toggle(m.text, VoiceApi.cachedVoice()));
 
                     msgRow.addView(tv);
+                    msgRow.addView(playBtn);
                     bubble.addView(msgRow);
                 } else {
                     bubble.addView(tv);

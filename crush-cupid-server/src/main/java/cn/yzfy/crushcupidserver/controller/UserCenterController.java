@@ -8,15 +8,18 @@ import cn.yzfy.crushcupidserver.model.vo.UserVO;
 import cn.yzfy.crushcupidserver.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 /**
- * 用户中心（本人自助）：资料、配额、角色。
+ * 用户中心（本人自助）：资料、头像上传、配额、角色。
  */
 @RestController
 @RequestMapping("/api/user")
@@ -35,6 +38,12 @@ public class UserCenterController {
     @PutMapping("/profile")
     public Result<UserVO> updateProfile(@RequestBody UpdateProfileDTO dto) {
         return Result.ok(userCenterLogic.updateProfile(SecurityUtils.currentUserId(), dto));
+    }
+
+    /** 上传头像（multipart）：存第三方 OSS（回退本地）并回写 avatarUrl，返回最新资料 */
+    @PostMapping("/avatar")
+    public Result<UserVO> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        return Result.ok(userCenterLogic.updateAvatar(SecurityUtils.currentUserId(), file));
     }
 
     /** 我的配额与今日用量 */

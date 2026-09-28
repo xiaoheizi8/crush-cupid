@@ -1,5 +1,6 @@
 package cn.yzfy.crushApp.ui;
 
+import android.app.Dialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -206,6 +207,15 @@ public class LoginFragment extends Fragment {
         captchaTip.setLayoutParams(ctlp);
         card.addView(captchaTip);
 
+        TextView forgot = new TextView(requireContext());
+        forgot.setText("忘记密码？");
+        forgot.setTextSize(12);
+        forgot.setTextColor(0xFF7256FF);
+        forgot.setGravity(Gravity.END);
+        forgot.setPadding(0, Ui.dp(requireContext(), 6), 0, 0);
+        forgot.setOnClickListener(v -> showForgotPassword());
+        card.addView(forgot);
+
         loginErr = errorText();
         card.addView(loginErr);
 
@@ -285,7 +295,7 @@ public class LoginFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "验证码加载失败：" + message, FriendlyToast.Type.ERROR);
+                Ui.toast(LoginFragment.this, "验证码加载失败：" + message, FriendlyToast.Type.ERROR);
             }
         });
     }
@@ -293,7 +303,7 @@ public class LoginFragment extends Fragment {
     private void sendRegisterCode() {
         String email = text(regEmail);
         if (email.isEmpty() || !email.contains("@")) {
-            Ui.toast(requireContext(), "请先填写正确的邮箱", FriendlyToast.Type.WARN);
+            Ui.toast(LoginFragment.this, "请先填写正确的邮箱", FriendlyToast.Type.WARN);
             return;
         }
         if (sendingCode) return;
@@ -302,7 +312,7 @@ public class LoginFragment extends Fragment {
         AuthApi.sendEmailCode(email, "REGISTER", new Rest.Callback<Void>() {
             @Override
             public void ok(Void data) {
-                Ui.toast(requireContext(), "验证码已发送，请查收邮箱", FriendlyToast.Type.SUCCESS);
+                Ui.toast(LoginFragment.this, "验证码已发送，请查收邮箱", FriendlyToast.Type.SUCCESS);
                 startCountdown();
             }
 
@@ -310,7 +320,7 @@ public class LoginFragment extends Fragment {
             public void fail(String message) {
                 sendingCode = false;
                 sendCodeBtn.setEnabled(true);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(LoginFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -351,7 +361,7 @@ public class LoginFragment extends Fragment {
             @Override
             public void ok(LoginVO data) {
                 AuthApi.saveToken(data.tokenValue);
-                Ui.toast(requireContext(), "欢迎回来，开启心动之旅 ♥", FriendlyToast.Type.SUCCESS);
+                Ui.toast(LoginFragment.this, "欢迎回来，开启心动之旅 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new HomeFragment());
             }
 
@@ -385,7 +395,7 @@ public class LoginFragment extends Fragment {
             @Override
             public void ok(LoginVO data) {
                 AuthApi.saveToken(data.tokenValue);
-                Ui.toast(requireContext(), "注册成功，欢迎加入 ♥", FriendlyToast.Type.SUCCESS);
+                Ui.toast(LoginFragment.this, "注册成功，欢迎加入 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new HomeFragment());
             }
 
@@ -396,6 +406,179 @@ public class LoginFragment extends Fragment {
                 setErr(regErr, message);
             }
         });
+    }
+
+    /** 忘记密码：邮箱验证码重置（purpose=RESET_PWD） */
+    private void showForgotPassword() {
+        android.content.Context ctx = requireContext();
+        android.app.Dialog d = new android.app.Dialog(ctx);
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Ui.dp(ctx, 22), Ui.dp(ctx, 18), Ui.dp(ctx, 22), Ui.dp(ctx, 18));
+
+        TextView head = new TextView(ctx);
+        head.setText("重置密码");
+        head.setTextSize(17);
+        head.setTextColor(0xFF2A2233);
+        head.setTypeface(Typeface.DEFAULT_BOLD);
+        box.addView(head);
+
+        TextView tip = new TextView(ctx);
+        tip.setText("输入注册邮箱，我们将发送验证码帮你重置");
+        tip.setTextSize(11);
+        tip.setTextColor(0xFFA5929C);
+        tip.setPadding(0, Ui.dp(ctx, 4), 0, 0);
+        box.addView(tip);
+
+        final EditText email = new EditText(ctx);
+        email.setHint("注册邮箱");
+        email.setTextSize(14);
+        email.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        email.setSingleLine(true);
+        email.setBackgroundResource(R.drawable.bg_input);
+        email.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8));
+        LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        elp.topMargin = Ui.dp(ctx, 12);
+        email.setLayoutParams(elp);
+        box.addView(email);
+
+        LinearLayout codeRow = new LinearLayout(ctx);
+        codeRow.setOrientation(LinearLayout.HORIZONTAL);
+        codeRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams crlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        crlp.topMargin = Ui.dp(ctx, 10);
+        codeRow.setLayoutParams(crlp);
+
+        final EditText code = new EditText(ctx);
+        code.setHint("邮箱验证码");
+        code.setTextSize(14);
+        code.setSingleLine(true);
+        code.setBackgroundResource(R.drawable.bg_input);
+        code.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8));
+        codeRow.addView(code, new LinearLayout.LayoutParams(0, Ui.dp(ctx, 44), 1f));
+
+        final TextView sendBtn = new TextView(ctx);
+        sendBtn.setText("发送验证码");
+        sendBtn.setTextSize(12);
+        sendBtn.setTextColor(0xFF7256FF);
+        sendBtn.setGravity(Gravity.CENTER);
+        sendBtn.setBackground(Ui.rounded(0xFFEFEBFF, 999));
+        sendBtn.setPadding(Ui.dp(ctx, 12), 0, Ui.dp(ctx, 12), 0);
+        LinearLayout.LayoutParams sblp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(ctx, 44));
+        sblp.leftMargin = Ui.dp(ctx, 8);
+        sendBtn.setLayoutParams(sblp);
+        codeRow.addView(sendBtn);
+        box.addView(codeRow);
+
+        final EditText newPwd = new EditText(ctx);
+        LinearLayout pwdRow = Ui.passwordField(ctx, newPwd, "新密码（8-64 位，含大小写字母和数字）");
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        plp.topMargin = Ui.dp(ctx, 10);
+        pwdRow.setLayoutParams(plp);
+        box.addView(pwdRow);
+
+        LinearLayout btns = new LinearLayout(ctx);
+        btns.setOrientation(LinearLayout.HORIZONTAL);
+        btns.setGravity(Gravity.END);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = Ui.dp(ctx, 14);
+        btns.setLayoutParams(blp);
+        TextView cancel = new TextView(ctx);
+        cancel.setText("取消");
+        cancel.setTextSize(14);
+        cancel.setTextColor(0xFFA5929C);
+        cancel.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 8), Ui.dp(ctx, 14), Ui.dp(ctx, 8));
+        cancel.setOnClickListener(v -> d.dismiss());
+        btns.addView(cancel);
+        TextView ok = new TextView(ctx);
+        ok.setText("重置密码");
+        ok.setTextSize(14);
+        ok.setTextColor(0xFFFFFFFF);
+        ok.setBackground(Ui.rounded(0xFFFF5A7A, 12));
+        ok.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 8), Ui.dp(ctx, 16), Ui.dp(ctx, 8));
+        btns.addView(ok);
+        box.addView(btns);
+
+        final boolean[] sending = {false};
+        final CountDownTimer[] timer = {null};
+        sendBtn.setOnClickListener(v -> {
+            String em = text(email);
+            if (em.isEmpty() || !em.contains("@")) {
+                Ui.toast(ctx, "请填写正确的邮箱", FriendlyToast.Type.WARN);
+                return;
+            }
+            if (sending[0]) return;
+            sending[0] = true;
+            sendBtn.setEnabled(false);
+            AuthApi.sendEmailCode(em, "RESET_PWD", new Rest.Callback<Void>() {
+                @Override
+                public void ok(Void data) {
+                    Ui.toast(ctx, "验证码已发送，请查收邮箱", FriendlyToast.Type.SUCCESS);
+                    timer[0] = new CountDownTimer(60_000, 1_000) {
+                        @Override
+                        public void onTick(long millisUntilFinished) {
+                            sendBtn.setText((millisUntilFinished / 1_000) + "s 后重发");
+                        }
+
+                        @Override
+                        public void onFinish() {
+                            sending[0] = false;
+                            sendBtn.setEnabled(true);
+                            sendBtn.setText("发送验证码");
+                        }
+                    }.start();
+                }
+
+                @Override
+                public void fail(String message) {
+                    sending[0] = false;
+                    sendBtn.setEnabled(true);
+                    Ui.toast(ctx, message, FriendlyToast.Type.ERROR, true);
+                }
+            });
+        });
+
+        ok.setOnClickListener(v -> {
+            String em = text(email);
+            String cd = text(code);
+            String np = text(newPwd);
+            if (em.isEmpty() || cd.isEmpty() || np.isEmpty()) {
+                Ui.toast(ctx, "请填写完整", FriendlyToast.Type.WARN);
+                return;
+            }
+            if (np.length() < 8) {
+                Ui.toast(ctx, "新密码至少 8 位", FriendlyToast.Type.WARN);
+                return;
+            }
+            Dialog loading = Ui.loading(ctx, "提交中…");
+            AuthApi.resetPassword(em, cd, np, new Rest.Callback<Void>() {
+                @Override
+                public void ok(Void data) {
+                    Ui.dismiss(loading);
+                    d.dismiss();
+                    Ui.toast(ctx, "密码已重置，请用新密码登录", FriendlyToast.Type.SUCCESS, true);
+                    if (loginEmail != null) loginEmail.setText(em);
+                }
+
+                @Override
+                public void fail(String message) {
+                    Ui.dismiss(loading);
+                    Ui.toast(ctx, message, FriendlyToast.Type.ERROR, true);
+                }
+            });
+        });
+
+        d.setOnDismissListener(x -> {
+            if (timer[0] != null) timer[0].cancel();
+        });
+        d.setContentView(box);
+        d.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        d.show();
     }
 
     // ---------------- 构建辅助 ----------------

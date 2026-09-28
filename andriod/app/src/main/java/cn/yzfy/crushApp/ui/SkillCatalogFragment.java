@@ -73,7 +73,7 @@ public class SkillCatalogFragment extends Fragment {
             public void ok(final SkillCatalog data) {
                 Ui.dismiss(dlg);
                 if (data == null || data.skill == null) {
-                    Ui.toast(requireContext(), "技能包数据为空", FriendlyToast.Type.WARN);
+                    Ui.toast(SkillCatalogFragment.this, "技能包数据为空", FriendlyToast.Type.WARN);
                     return;
                 }
                 Ui.post(() -> {
@@ -105,13 +105,15 @@ public class SkillCatalogFragment extends Fragment {
                     Ui.enter(card, R.anim.item_fade_slide);
 
                     if (data.prompts != null && !data.prompts.isEmpty()) {
-                        Ui.section(ctx, "可用 Prompt");
+                        Ui.section(ctx, "可用 Prompt（点击查看原文）");
                         for (String p : data.prompts) {
                             TextView t = Ui.chip(ctx, p);
                             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                             lp.bottomMargin = Ui.dp(ctx, 6);
                             t.setLayoutParams(lp);
+                            t.setOnClickListener(v -> showPrompt(ctx, p));
+                            Ui.pressScale(t);
                             col.addView(t);
                         }
                     }
@@ -136,9 +138,79 @@ public class SkillCatalogFragment extends Fragment {
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(SkillCatalogFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
         return root;
+    }
+
+    /** 查看 Prompt 原文（Markdown 渲染，与 Web 端 prompt 弹窗对齐） */
+    private void showPrompt(final android.content.Context ctx, final String name) {
+        final android.app.Dialog loading = Ui.loading(ctx, "加载 " + name + " …");
+        SkillApi.prompt(name, new Rest.Callback<String>() {
+            @Override
+            public void ok(String data) {
+                Ui.dismiss(loading);
+                Ui.post(() -> {
+                    android.app.Dialog d = new android.app.Dialog(ctx);
+                    d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+
+                    LinearLayout box = new LinearLayout(ctx);
+                    box.setOrientation(LinearLayout.VERTICAL);
+                    box.setBackground(Ui.rounded(0xFFFFFFFF, 16));
+                    box.setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 16));
+
+                    LinearLayout head = new LinearLayout(ctx);
+                    head.setOrientation(LinearLayout.HORIZONTAL);
+                    head.setGravity(Gravity.CENTER_VERTICAL);
+                    TextView title = new TextView(ctx);
+                    title.setText("📄 prompt: " + name);
+                    title.setTextSize(15);
+                    title.setTextColor(0xFF2A2233);
+                    title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+                    head.addView(title, new LinearLayout.LayoutParams(
+                            0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                    TextView close = new TextView(ctx);
+                    close.setText("✕");
+                    close.setTextSize(16);
+                    close.setTextColor(0xFFA5929C);
+                    close.setPadding(Ui.dp(ctx, 10), 0, Ui.dp(ctx, 4), 0);
+                    close.setOnClickListener(v -> d.dismiss());
+                    Ui.pressScale(close);
+                    head.addView(close);
+                    box.addView(head);
+
+                    ScrollView sv = new ScrollView(ctx);
+                    LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+                    slp.topMargin = Ui.dp(ctx, 8);
+                    sv.setLayoutParams(slp);
+                    TextView body = new TextView(ctx);
+                    body.setTextSize(13);
+                    body.setTextColor(0xFF3A3138);
+                    body.setLineSpacing(Ui.dp(ctx, 3), 1f);
+                    sv.addView(body);
+                    // 高度取 480dp 与屏幕高度 75% 的较小值，避免小屏溢出
+                    int dlgHeight = Math.min(Ui.dp(ctx, 480),
+                            (int) (ctx.getResources().getDisplayMetrics().heightPixels * 0.75));
+                    box.addView(sv, new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, dlgHeight));
+
+                    io.noties.markwon.Markwon.create(ctx)
+                            .setMarkdown(body, data == null || data.trim().isEmpty() ? "（内容为空）" : data);
+
+                    d.setContentView(box, new ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                    d.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+                    d.show();
+                });
+            }
+
+            @Override
+            public void fail(String message) {
+                Ui.dismiss(loading);
+                Ui.toast(ctx, message, FriendlyToast.Type.ERROR, true);
+            }
+        });
     }
 }

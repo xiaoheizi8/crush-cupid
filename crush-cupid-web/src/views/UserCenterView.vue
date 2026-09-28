@@ -5,9 +5,28 @@
       <a-row :gutter="20" class="user-row">
         <a-col :xs="24" :md="8">
           <div class="profile-card">
-            <div class="profile-card__avatar">
-              {{ user?.username?.charAt(0) || '?' }}
+            <div
+              class="profile-card__avatar"
+              :class="{ 'is-uploading': uploading }"
+              title="点击更换头像"
+              @click="pickAvatar"
+            >
+              <img
+                v-if="user?.avatarUrl"
+                :src="user.avatarUrl"
+                class="profile-card__avatar-img"
+                alt="avatar"
+              />
+              <span v-else>{{ user?.username?.charAt(0) || '?' }}</span>
+              <div class="profile-card__avatar-mask">{{ uploading ? '上传中…' : '更换头像' }}</div>
             </div>
+            <input
+              ref="avatarInput"
+              type="file"
+              accept="image/*"
+              class="avatar-file"
+              @change="onAvatarChange"
+            />
             <div class="profile-card__name">{{ user?.username || '未登录' }}</div>
             <div class="profile-card__email">{{ user?.email }}</div>
             <div class="profile-card__status" v-if="user?.emailVerified">
@@ -65,6 +84,25 @@
               </a-form-item>
             </a-form>
           </a-card>
+
+          <a-card class="profile-form-card" :title="'🔒 修改密码'">
+            <a-form layout="vertical" @finish="handleChangePassword">
+              <a-form-item label="原密码">
+                <a-input-password v-model:value="pwdForm.oldPassword" placeholder="输入当前密码" />
+              </a-form-item>
+              <a-form-item label="新密码">
+                <a-input-password v-model:value="pwdForm.newPassword" placeholder="至少 6 位" />
+              </a-form-item>
+              <a-form-item label="确认新密码">
+                <a-input-password v-model:value="pwdForm.confirm" placeholder="再输入一次新密码" />
+              </a-form-item>
+              <a-form-item>
+                <a-button type="primary" html-type="submit" :loading="changingPwd">
+                  更新密码
+                </a-button>
+              </a-form-item>
+            </a-form>
+          </a-card>
         </a-col>
       </a-row>
     </div>
@@ -75,16 +113,20 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { message } from 'ant-design-vue'
-import { myProfile, myQuota, updateProfile, logout } from '@/api'
+import { myProfile, myQuota, updateProfile, logout, changePassword, uploadAvatar } from '@/api'
 import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const router = useRouter()
-const user = ref<{ username: string; email: string; emailVerified: boolean; createdAt: string } | null>(null)
+const user = ref<{ username: string; email: string; avatarUrl?: string; emailVerified: boolean; createdAt: string } | null>(null)
+const avatarInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
 const quota = ref<{ plan: string; crushLimit: number; dailyChatLimit: number; todayMessageCount: number; crushCount: number } | null>(null)
 const saving = ref(false)
 
 const profileForm = ref({ username: '', email: '' })
+const pwdForm = ref({ oldPassword: '', newPassword: '', confirm: '' })
+const changingPwd = ref(false)
 
 async function load() {
   try {
@@ -112,6 +154,38 @@ async function handleUpdateProfile() {
   }
 }
 
+/** 触发头像文件选择 */
+function pickAvatar() {
+  if (uploading.value) return
+  avatarInput.value?.click()
+}
+
+/** 头像上传：前端校验 → 上传（OSS/本地）→ 刷新资料 */
+async function onAvatarChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 清空以便重复选择同一文件仍触发 change
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    message.warning('请选择图片文件')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    message.warning('图片不能超过 5MB')
+    return
+  }
+  uploading.value = true
+  try {
+    const updated = await uploadAvatar(file)
+    user.value = updated
+    message.success('头像已更新')
+  } catch (err: any) {
+    message.error(err?.message || '头像上传失败')
+  } finally {
+    uploading.value = false
+  }
+}
+
 async function handleLogout() {
   try {
     await logout()
@@ -119,6 +193,35 @@ async function handleLogout() {
   localStorage.removeItem('satoken')
   message.success(t('common.logoutSuccess'))
   router.push('/login')
+}
+
+/** 修改密码（与安卓端用户中心对齐） */
+async function handleChangePassword() {
+  if (!pwdForm.value.oldPassword || !pwdForm.value.newPassword) {
+    message.warning('请填写原密码与新密码')
+    return
+  }
+  if (pwdForm.value.newPassword.length < 6) {
+    message.warning('新密码至少 6 位')
+    return
+  }
+  if (pwdForm.value.newPassword !== pwdForm.value.confirm) {
+    message.warning('两次输入的新密码不一致')
+    return
+  }
+  changingPwd.value = true
+  try {
+    await changePassword({
+      oldPassword: pwdForm.value.oldPassword,
+      newPassword: pwdForm.value.newPassword,
+    })
+    message.success('密码已更新')
+    pwdForm.value = { oldPassword: '', newPassword: '', confirm: '' }
+  } catch (e: any) {
+    message.error(e?.message || '修改失败')
+  } finally {
+    changingPwd.value = false
+  }
 }
 
 onMounted(load)
@@ -151,6 +254,9 @@ onMounted(load)
 }
 
 .profile-card__avatar {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
   width: 80px;
   height: 80px;
   border-radius: 50%;
@@ -163,6 +269,36 @@ onMounted(load)
   justify-content: center;
   margin: 0 auto 16px;
   box-shadow: 0 4px 16px rgba(255, 90, 122, 0.3);
+}
+
+.profile-card__avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-card__avatar-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.profile-card__avatar:hover .profile-card__avatar-mask,
+.profile-card__avatar.is-uploading .profile-card__avatar-mask {
+  opacity: 1;
+}
+
+.avatar-file {
+  display: none;
 }
 
 .profile-card__name {

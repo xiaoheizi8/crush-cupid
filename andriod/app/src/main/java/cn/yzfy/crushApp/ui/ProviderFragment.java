@@ -135,7 +135,7 @@ public class ProviderFragment extends Fragment {
             @Override
             public void fail(String message) {
                 if (refresh != null) refresh.setRefreshing(false);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(ProviderFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -256,14 +256,14 @@ public class ProviderFragment extends Fragment {
             @Override
             public void ok(AiProvider data) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), "已保存，即时生效", FriendlyToast.Type.SUCCESS);
+                Ui.toast(ProviderFragment.this, "已保存，即时生效", FriendlyToast.Type.SUCCESS);
                 load();
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(ProviderFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         };
     }
@@ -369,7 +369,7 @@ public class ProviderFragment extends Fragment {
 
                             @Override
                             public void fail(String message) {
-                                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
+                                Ui.toast(ProviderFragment.this, message, FriendlyToast.Type.ERROR);
                             }
                         }));
                 return true;

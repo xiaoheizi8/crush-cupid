@@ -838,37 +838,6 @@ onUnmounted(() => {
   color: var(--cupid-text-secondary);
 }
 
-/* 军师模式开关 */
-.chat-card__mode {
-  position: absolute;
-  top: 50%;
-  right: 20px;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--cupid-bg-card);
-  border: 1px solid var(--cupid-border);
-  transition: all 0.25s ease;
-}
-
-.chat-card__mode.on {
-  border-color: var(--cupid-primary);
-  background: var(--cupid-gradient-soft);
-}
-
-.chat-card__mode-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--cupid-text-secondary);
-}
-
-.chat-card__mode.on .chat-card__mode-label {
-  color: var(--cupid-primary);
-}
-
 /* 消息列表 */
 .messages {
   flex: 1;

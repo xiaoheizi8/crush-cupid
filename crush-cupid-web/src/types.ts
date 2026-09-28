@@ -23,6 +23,7 @@ export interface Crush {
   totalMessages?: number
   lastChatDate?: string
   voiceId?: string
+  proactiveEnabled?: boolean
   version?: number
   createdAt?: string
   updatedAt?: string
@@ -39,6 +40,7 @@ export interface CrushCreatePayload {
   relationshipStatus?: string
   impression?: string
   voiceId?: string
+  proactiveEnabled?: boolean
 }
 
 export interface SkillMeta {
@@ -61,6 +63,14 @@ export interface AdvisorCommand {
   description: string
   promptName: string
   requiresCrush: boolean
+  /** emoji 图标，如 🤵 */
+  icon?: string
+  /** 分组：ADVISOR 军师 / MIRROR 照镜子 / SIMULATOR 模拟器 */
+  group?: 'ADVISOR' | 'MIRROR' | 'SIMULATOR'
+  /** 是否需要用户输入材料（聊天记录/草稿/场景） */
+  needsInput?: boolean
+  /** 输入对话框的提示语 */
+  inputHint?: string
 }
 
 export interface CrushReport {
@@ -114,6 +124,8 @@ export interface Source {
   type: string
   fileName?: string
   content?: string
+  /** LLM 结构化分析结果（JSON 字符串：facts/portraitClues/keyPoints/emotionSignals/risks） */
+  analysis?: string
   messageCount?: number
   createdAt?: string
 }
@@ -233,6 +245,17 @@ export interface RegisterDTO {
 export interface UpdateProfileDTO {
   username?: string
   avatarUrl?: string
+}
+
+/** 文件上传结果（通用上传端点 POST /upload/image 返回） */
+export interface UploadVO {
+  url: string
+}
+
+/** 修改密码参数（登录后，POST /auth/password） */
+export interface ChangePasswordDTO {
+  oldPassword: string
+  newPassword: string
 }
 
 /** 我的配额与用量 */

@@ -97,6 +97,7 @@ public class HomeFragment extends Fragment {
         quick.addView(quickChip("📦 技能包", () -> Nav.push(requireActivity(), SkillCatalogFragment.class, null)));
         quick.addView(quickChip("🧠 模型", () -> Nav.push(requireActivity(), ProviderFragment.class, null)));
         quick.addView(quickChip("🎙 音色", () -> Nav.push(requireActivity(), VoiceConfigFragment.class, null)));
+        quick.addView(quickChip("👤 我的", () -> Nav.push(requireActivity(), UserCenterFragment.class, null)));
         quick.addView(quickChip("🚪 登出", this::logout));
 
         // 列表
@@ -196,7 +197,7 @@ public class HomeFragment extends Fragment {
             if (refresh != null) refresh.setRefreshing(false);
         }, e -> {
             if (refresh != null) refresh.setRefreshing(false);
-            Ui.toast(requireContext(), e, FriendlyToast.Type.ERROR, true);
+            Ui.toast(HomeFragment.this, e, FriendlyToast.Type.ERROR, true);
         }));
     }
 
@@ -205,9 +206,9 @@ public class HomeFragment extends Fragment {
         Ui.confirm(requireContext(), "登出", "确定要退出当前账号吗？", "登出", () -> {
             AuthApi.logout(new RestCallback<>(v -> Ui.post(() -> {
                 AuthApi.clearToken();
-                Ui.toast(requireContext(), "已安全退出，期待与你再会 ♥", FriendlyToast.Type.SUCCESS);
+                Ui.toast(HomeFragment.this, "已安全退出，期待与你再会 ♥", FriendlyToast.Type.SUCCESS);
                 Nav.reset(requireActivity(), new cn.yzfy.crushApp.ui.LoginFragment());
-            }), e -> Ui.toast(requireContext(), e)));
+            }), e -> Ui.toast(HomeFragment.this, e)));
         });
     }
 
@@ -377,9 +378,9 @@ public class HomeFragment extends Fragment {
                     } else if (w == 3) {
                         Ui.confirm(requireContext(), "删除", "确定删除「" + c.name + "」吗？", "删除", () ->
                                 CrushApi.delete(c.id, new RestCallback<>(v -> {
-                                    Ui.toast(requireContext(), "已删除 ♥", FriendlyToast.Type.SUCCESS);
+                                    Ui.toast(HomeFragment.this, "已删除 ♥", FriendlyToast.Type.SUCCESS);
                                     load();
-                                }, e -> Ui.toast(requireContext(), e))));
+                                }, e -> Ui.toast(HomeFragment.this, e))));
                     }
                 })
                 .show();

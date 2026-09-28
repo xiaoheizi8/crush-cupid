@@ -28,4 +28,7 @@ public class CrushCreateDTO {
 
     /** CosyVoice 专属音色 voice_id（由声音设计接口产生） */
     private String voiceId;
+
+    /** 是否允许 ta 主动发消息（与更新接口字段对齐，Web/安卓新建表单均可携带） */
+    private Boolean proactiveEnabled;
 }

@@ -87,10 +87,11 @@
               class="prompt-tile"
               @click="openAdvisor(cmd)"
             >
-              <div class="prompt-tile__icon">🎯</div>
+              <div class="prompt-tile__icon">{{ cmd.icon || '🎯' }}</div>
               <div class="prompt-tile__name">{{ cmd.title }}</div>
               <div class="advisor-trigger">{{ cmd.trigger }}</div>
               <div class="prompt-tile__desc">{{ cmd.description }}</div>
+              <div v-if="cmd.needsInput" class="prompt-tile__need">✏️ 需要粘贴材料</div>
               <div class="prompt-tile__action">咨询 →</div>
             </div>
           </div>
@@ -177,13 +178,7 @@
           <span class="report-label">触发命令</span>
           <a-tag color="purple">{{ currentAdvisor?.trigger }}</a-tag>
         </div>
-        <a-textarea
-          v-if="!currentAdvisor?.requiresCrush"
-          v-model:value="advisorQuestion"
-          :rows="4"
-          placeholder="简单描述你的情况 / 或粘贴你想给军师看的聊天记录…"
-        />
-        <div v-else class="report-row">
+        <div v-if="currentAdvisor?.requiresCrush" class="report-row">
           <span class="report-label">暗恋对象</span>
           <a-select
             v-model:value="reportSlug"
@@ -192,6 +187,12 @@
             :options="crushOptions"
           />
         </div>
+        <a-textarea
+          v-if="!currentAdvisor?.requiresCrush || currentAdvisor?.needsInput"
+          v-model:value="advisorQuestion"
+          :rows="4"
+          :placeholder="advisorPlaceholder"
+        />
         <pre v-if="advisorResult" class="report-pre">{{ advisorResult }}</pre>
       </div>
     </a-modal>
@@ -262,6 +263,15 @@ const crushOptions = computed(() =>
   crushes.value.map((c) => ({ label: c.name, value: c.slug })),
 )
 
+/** 输入框占位：需要材料的命令用服务端下发的提示语 */
+const advisorPlaceholder = computed(() => {
+  const cmd = currentAdvisor.value
+  if (cmd?.needsInput) {
+    return cmd.inputHint || '粘贴材料（聊天记录 / 草稿 / 场景描述）…'
+  }
+  return '简单描述你的情况 / 或粘贴你想给军师看的聊天记录…'
+})
+
 /** 加载 Skill 目录 + 军师子命令 + 暗恋对象列表 */
 async function load() {
   loading.value = true
@@ -307,6 +317,10 @@ function goAdvisor() {
 /** 调用军师子命令 */
 async function doAdvisorInvoke() {
   if (!currentAdvisor.value) return
+  if (currentAdvisor.value.needsInput && !advisorQuestion.value.trim()) {
+    message.warning('先粘贴材料，军师才好出手')
+    return
+  }
   advisorBusy.value = true
   advisorResult.value = ''
   try {
@@ -618,6 +632,15 @@ onMounted(load)
   font-size: 12px;
   color: var(--cupid-text-secondary);
   line-height: 1.5;
+}
+
+.prompt-tile__need {
+  font-size: 11px;
+  color: #c08a2d;
+  background: #fff6e0;
+  border-radius: 8px;
+  padding: 2px 8px;
+  width: fit-content;
 }
 
 /* 关系报告 / 军师弹窗 */

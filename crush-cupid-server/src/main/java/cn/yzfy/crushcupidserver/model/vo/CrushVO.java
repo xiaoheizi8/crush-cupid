@@ -52,6 +52,9 @@ public class CrushVO {
     /** CosyVoice 专属音色 voice_id */
     private String voiceId;
 
+    /** 是否允许 ta 主动发消息（定时调度 + 「等 ta 找我」共用开关） */
+    private Boolean proactiveEnabled;
+
     private Integer version;
 
     private Date createdAt;

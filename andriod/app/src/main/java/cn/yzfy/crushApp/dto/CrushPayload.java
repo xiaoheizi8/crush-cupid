@@ -12,4 +12,6 @@ public class CrushPayload {
     public String relationshipStatus;
     public String impression;
     public String voiceId;
+    /** 是否允许 ta 主动发消息（null = 不修改） */
+    public Boolean proactiveEnabled;
 }

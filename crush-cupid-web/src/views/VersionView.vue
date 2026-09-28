@@ -22,35 +22,66 @@
         </a-timeline-item>
       </a-timeline>
     </div>
-    <div v-else class="empty">暂无版本记录</div>
+    <div v-else-if="!crushId" class="empty">
+      <div>选择一个暗恋对象查看版本记录</div>
+      <a-select
+        v-model:value="pickedId"
+        :options="crushOptions"
+        placeholder="选择暗恋对象"
+        class="empty-select"
+        show-search
+        option-filter-prop="label"
+        @change="onPick"
+      />
+    </div>
+    <div v-else class="empty">暂无版本记录 · 先在暗恋对象页「构建人格」生成版本</div>
   </PageContainer>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { listVersions } from '@/api'
-import type { VersionVO } from '@/types'
+import { listVersions, listCrushes } from '@/api'
+import type { Crush, VersionVO } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const versions = ref<VersionVO[]>([])
 const loading = ref(true)
 const crushName = ref('')
+const crushes = ref<Crush[]>([])
+const pickedId = ref<number | undefined>(undefined)
+
+const crushId = computed(() => Number(route.query.crushId) || 0)
+const crushOptions = computed(() => crushes.value.map((c) => ({ label: c.name, value: c.id! })))
+
+/** 从选择器挑人：写入 query 触发加载 */
+async function onPick(id: number) {
+  if (!id) return
+  await router.replace({ query: { ...route.query, crushId: String(id) } })
+  await load()
+}
 
 async function load() {
+  loading.value = true
   try {
-    const crushId = Number(route.query.crushId)
-    if (crushId) {
-      const data = await listVersions(crushId)
+    if (crushId.value) {
+      const data = await listVersions(crushId.value)
       versions.value = data as unknown as VersionVO[]
       // 尝试获取 crush 名称
       try {
         const { getCrush } = await import('@/api')
-        const crush = await getCrush(crushId)
+        const crush = await getCrush(crushId.value)
         crushName.value = crush.name
+      } catch { /* ignore */ }
+    } else {
+      // 未指定对象：加载列表供选择（修复侧边栏直跳 /versions 时列表为空的联动缺口）
+      versions.value = []
+      try {
+        crushes.value = await listCrushes()
       } catch { /* ignore */ }
     }
   } catch (e: any) {
@@ -101,5 +132,10 @@ onMounted(load)
   text-align: center;
   padding: 40px 0;
   color: var(--cupid-text-muted);
+}
+
+.empty-select {
+  margin-top: 14px;
+  width: 260px;
 }
 </style>

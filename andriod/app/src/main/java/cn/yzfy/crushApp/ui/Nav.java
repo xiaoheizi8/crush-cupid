@@ -26,7 +26,9 @@ public final class Nav {
 
     public static void push(FragmentActivity a, Class<? extends Fragment> clazz, Bundle args) {
         try {
-            Fragment f = clazz.newInstance();
+            // FragmentFactory.instantiate 替代废弃的 Class.newInstance()（androidx 官方推荐路径）
+            Fragment f = a.getSupportFragmentManager().getFragmentFactory()
+                    .instantiate(a.getClassLoader(), clazz.getName());
             f.setArguments(args);
             push(a, f);
         } catch (Exception e) {

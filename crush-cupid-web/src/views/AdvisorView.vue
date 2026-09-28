@@ -48,11 +48,11 @@
                 v-for="cmd in commands"
                 :key="cmd.trigger"
                 class="quick-chip"
-                :color="cmd.requiresCrush ? 'purple' : 'geekblue'"
+                :color="chipColor(cmd)"
                 :disabled="streaming"
                 @click="sendQuick(cmd)"
               >
-                {{ cmd.title }}
+                {{ cmd.icon }} {{ cmd.title }}<span v-if="cmd.needsInput" class="quick-chip__need">✏️</span>
               </a-tag>
             </div>
 
@@ -279,10 +279,22 @@ function send() {
   void sendUser(input.value)
 }
 
-/** 点击快捷指令 chip：将指令语贴进输入框并触发（相当于替用户补全子命令） */
+/** 快捷指令 chip 分组配色：军师=紫 / 照镜子=金 / 模拟器=品红 */
+function chipColor(cmd: AdvisorCommand) {
+  if (cmd.group === 'MIRROR') return 'gold'
+  if (cmd.group === 'SIMULATOR') return 'magenta'
+  return 'purple'
+}
+
+/** 点击快捷指令 chip：普通命令直接发送；需要材料的命令只预填输入框，等用户粘贴后发送 */
 function sendQuick(cmd: AdvisorCommand) {
   if (streaming.value || !currentSlug.value) return
-  void sendUser(`${cmd.title}：`)
+  const prefix = `${cmd.title}：`
+  if (cmd.needsInput) {
+    input.value = prefix
+    return
+  }
+  void sendUser(prefix)
 }
 
 /* ---------- 报告 ---------- */
@@ -464,6 +476,11 @@ onMounted(() => {
 .quick-chip:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.quick-chip__need {
+  margin-left: 4px;
+  font-size: 11px;
 }
 
 .messages {

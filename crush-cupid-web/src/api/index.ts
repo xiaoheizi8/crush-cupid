@@ -7,6 +7,7 @@ import type {
   ChatHistoryVO,
   ChatMedia,
   CaptchaVO,
+  ChangePasswordDTO,
   Crush,
   CrushCreatePayload,
   CrushReport,
@@ -432,14 +433,27 @@ export async function me(): Promise<UserVO> {
   return unwrap(http.get<Result<UserVO>>('/auth/me'))
 }
 
-/** 修改密码 */
-export async function changePassword(payload: UpdateProfileDTO): Promise<void> {
-  await unwrap(http.put<Result<void>>('/auth/password', payload))
+/** 修改密码（登录后，服务端为 POST /auth/password） */
+export async function changePassword(payload: ChangePasswordDTO): Promise<void> {
+  await unwrap(http.post<Result<void>>('/auth/password', payload))
+}
+
+/** 重置密码（邮箱验证码方式，未登录可用） */
+export async function resetPassword(payload: { email: string; code: string; newPassword: string }): Promise<void> {
+  await unwrap(http.post<Result<void>>('/auth/reset-password', payload))
 }
 
 /** 更新资料 */
 export async function updateProfile(payload: UpdateProfileDTO): Promise<UserVO> {
   return unwrap(http.put<Result<UserVO>>('/user/profile', payload))
+}
+
+/** 上传头像（multipart，POST /user/avatar），返回更新后的资料 */
+export async function uploadAvatar(file: File): Promise<UserVO> {
+  const form = new FormData()
+  form.append('file', file)
+  // 不手动设置 Content-Type：axios 会为 FormData 自动补上带 boundary 的 multipart/form-data
+  return unwrap(http.post<Result<UserVO>>('/user/avatar', form))
 }
 
 /** 我的资料 */

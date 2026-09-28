@@ -53,6 +53,13 @@ public final class AuthApi {
         }.getType(), cb);
     }
 
+    /** 忘记密码：邮箱验证码重置（purpose=RESET_PWD 的验证码） */
+    public static void resetPassword(String email, String code, String newPassword, Rest.Callback<Void> cb) {
+        Rest.post("/api/auth/reset-password", new ResetPasswordRequest(email, code, newPassword),
+                new TypeToken<Result<Void>>() {
+                }.getType(), cb);
+    }
+
     /** 保存 token 到 SharedPreferences */
     public static void saveToken(String tokenValue) {
         AppPrefs.putString("satoken", tokenValue);
@@ -112,5 +119,18 @@ class RegisterRequest {
         this.password = password;
         this.username = username;
         this.code = code;
+    }
+}
+
+/** 重置密码请求（免登录，凭邮箱验证码） */
+class ResetPasswordRequest {
+    public String email;
+    public String code;
+    public String newPassword;
+
+    ResetPasswordRequest(String email, String code, String newPassword) {
+        this.email = email;
+        this.code = code;
+        this.newPassword = newPassword;
     }
 }

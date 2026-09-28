@@ -118,14 +118,14 @@ public class ReportsFragment extends Fragment {
                 if (data != null) {
                     openReport(data);
                 } else {
-                    Ui.toast(requireContext(), "报告为空", FriendlyToast.Type.WARN);
+                    Ui.toast(ReportsFragment.this, "报告为空", FriendlyToast.Type.WARN);
                 }
             }
 
             @Override
             public void fail(String message) {
                 Ui.dismiss(dlg);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(ReportsFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -164,7 +164,7 @@ public class ReportsFragment extends Fragment {
             @Override
             public void fail(String message) {
                 if (refresh != null) refresh.setRefreshing(false);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                Ui.toast(ReportsFragment.this, message, FriendlyToast.Type.ERROR, true);
             }
         });
     }
@@ -230,7 +230,7 @@ public class ReportsFragment extends Fragment {
 
                             @Override
                             public void fail(String message) {
-                                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
+                                Ui.toast(ReportsFragment.this, message, FriendlyToast.Type.ERROR);
                             }
                         }));
                 return true;

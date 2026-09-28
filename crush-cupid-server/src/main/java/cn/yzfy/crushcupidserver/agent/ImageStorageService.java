@@ -2,6 +2,7 @@ package cn.yzfy.crushcupidserver.agent;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.yzfy.crushcupidserver.config.OssStorageService;
 import cn.yzfy.crushcupidserver.config.UploadProperties;
 import cn.yzfy.crushcupidserver.model.dto.ChatMedia;
@@ -68,13 +69,29 @@ public class ImageStorageService {
             throw new IllegalArgumentException("仅支持图片持久化，type=" + media.getType());
         }
         byte[] bytes = java.util.Base64.getDecoder().decode(media.getData());
-        String ext = imageExt(media.getMimeType());
-        String dateDir = LocalDate.now().format(DATE_DIR);
-        String fileName = IdUtil.fastSimpleUUID() + ext;
-        String relative = dateDir + "/" + fileName;
-        String contentType = media.getMimeType() != null ? media.getMimeType() : "image/png";
+        return storeImage(bytes, media.getMimeType(), null);
+    }
 
-        // 优先 OSS
+    /**
+     * 通用图片持久化：任意来源的图片字节 -> 可访问 URL（OSS 优先，回退本地磁盘）。
+     * <p>
+     * 供头像上传（module=avatar）、素材图片（module=upload）等复用。{@code module} 作为对象键与落盘子目录前缀，
+     * 为空时直接落在日期目录下（即对话图片的原有形态 {@code yyyyMMdd/xxx.png}）。
+     *
+     * @param bytes    图片字节
+     * @param mimeType 图片 MIME，决定扩展名，缺省按 png 处理
+     * @param module   业务模块前缀，可空
+     * @return 可访问 URL（OSS 为完整公网 URL，本地为 /api/uploads/...）
+     */
+    public String storeImage(byte[] bytes, String mimeType, String module) {
+        String ext = imageExt(mimeType);
+        String dateDir = LocalDate.now().format(DATE_DIR);
+        String dir = StrUtil.isBlank(module) ? dateDir : module + "/" + dateDir;
+        String fileName = IdUtil.fastSimpleUUID() + ext;
+        String relative = dir + "/" + fileName;
+        String contentType = mimeType != null ? mimeType : "image/png";
+
+        // 优先第三方对象存储（阿里云 OSS）
         String ossUrl = ossStorageService.uploadImage(bytes, relative, contentType);
         if (ossUrl != null) {
             return ossUrl;
@@ -83,7 +100,7 @@ public class ImageStorageService {
         File target = FileUtil.file(uploadProperties.getDir(), relative);
         FileUtil.mkParentDirs(target);
         FileUtil.writeBytes(bytes, target);
-        return slashUrl(uploadProperties.getUrlPrefix(), dateDir, fileName);
+        return slashUrl(uploadProperties.getUrlPrefix(), dir, fileName);
     }
 
     /** mimeType -> 文件扩展名（含点） */
@@ -107,9 +124,9 @@ public class ImageStorageService {
         return ".png";
     }
 
-    /** 拼 URL，统一用正斜杠分隔 */
-    private String slashUrl(String prefix, String dateDir, String fileName) {
+    /** 拼 URL，统一用正斜杠分隔（dir 为相对目录，可含业务模块前缀） */
+    private String slashUrl(String prefix, String dir, String fileName) {
         String p = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
-        return p + "/" + dateDir + "/" + fileName;
+        return p + "/" + dir + "/" + fileName;
     }
 }

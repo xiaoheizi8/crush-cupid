@@ -61,6 +61,28 @@ public final class Ui {
         FriendlyToast.show(c, s, type, longToast, onTap);
     }
 
+    // ---- Fragment 版重载：回调可能在 Fragment detached 后触发，统一加 isAdded 守卫 ----
+
+    public static void toast(androidx.fragment.app.Fragment host, String s) {
+        if (host.isAdded()) toast(host.requireContext(), s);
+    }
+
+    public static void toast(androidx.fragment.app.Fragment host, String s, boolean longToast) {
+        if (host.isAdded()) toast(host.requireContext(), s, longToast);
+    }
+
+    public static void toast(androidx.fragment.app.Fragment host, String s, FriendlyToast.Type type) {
+        if (host.isAdded()) toast(host.requireContext(), s, type);
+    }
+
+    public static void toast(androidx.fragment.app.Fragment host, String s, FriendlyToast.Type type, boolean longToast) {
+        if (host.isAdded()) toast(host.requireContext(), s, type, longToast);
+    }
+
+    public static void toast(androidx.fragment.app.Fragment host, String s, FriendlyToast.Type type, boolean longToast, Runnable onTap) {
+        if (host.isAdded()) toast(host.requireContext(), s, type, longToast, onTap);
+    }
+
     public static void confirm(Context c, String title, String message, String okText, Runnable onOk) {
         new MaterialAlertDialogBuilder(c)
                 .setTitle(title)

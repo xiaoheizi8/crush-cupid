@@ -1,8 +1,6 @@
 package cn.yzfy.crushApp.ui;
 
-import android.app.Dialog;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -13,15 +11,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.PickVisualMediaRequest;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.util.List;
 
 import cn.yzfy.crushApp.R;
@@ -36,9 +29,9 @@ public class CrushEditFragment extends Fragment {
 
     private Crush crush;   // null = 新建
     private EditText nameInput, slugInput, mbti, zodiac, occupation, gender, know, relation, impression, voice;
+    private android.widget.Switch proactiveSwitch;
     private LinearLayout sourcesBox;
-    private ActivityResultLauncher<PickVisualMediaRequest> photoPicker;
-    private ActivityResultLauncher<String> filePicker;
+    private SourceImporter importer;
 
     @Nullable
     @Override
@@ -46,6 +39,9 @@ public class CrushEditFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         android.content.Context ctx = requireContext();
         crush = HomeFragment.crushFrom(getArguments());
+        if (crush != null) {
+            importer = new SourceImporter(this, crush.id, this::loadSources);
+        }
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -108,6 +104,9 @@ public class CrushEditFragment extends Fragment {
         voice = field(ctx, col, "音色ID 🎙");
         voice.setHint("CosyVoice voice_id，留空用默认音色");
 
+        // 主动消息开关（与 Web 端编辑表单 / 详情页开关对齐）
+        buildProactiveSection(ctx, col);
+
         // 材料（仅编辑已有 crush 时可用：新建还没有 id，无法关联原材料）
         if (crush != null) {
             buildSourcesSection(ctx, col);
@@ -122,6 +121,7 @@ public class CrushEditFragment extends Fragment {
             relation.setText(crush.relationshipStatus);
             impression.setText(crush.impression);
             voice.setText(crush.voiceId);
+            proactiveSwitch.setChecked(crush.isProactiveEnabled());
         }
 
         TextView save = new TextView(ctx);
@@ -136,6 +136,39 @@ public class CrushEditFragment extends Fragment {
         col.addView(save, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return root;
+    }
+
+    /** 主动消息开关卡（样式与详情页开关一致，新建/编辑均可设置） */
+    private void buildProactiveSection(android.content.Context ctx, LinearLayout col) {
+        LinearLayout card = Ui.card(ctx);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        clp.topMargin = Ui.dp(ctx, 16);
+        card.setLayoutParams(clp);
+
+        LinearLayout txt = new LinearLayout(ctx);
+        txt.setOrientation(LinearLayout.VERTICAL);
+        txt.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView title = new TextView(ctx);
+        title.setText("💌 允许 ta 主动找我");
+        title.setTextSize(14);
+        title.setTextColor(0xFF2A2233);
+        title.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        txt.addView(title);
+        TextView sub = new TextView(ctx);
+        sub.setText("开启后，ta 会在合适的时机先发消息（冷却 90 分钟，每日上限 3 次）");
+        sub.setTextSize(11);
+        sub.setTextColor(0xFFA5929C);
+        sub.setPadding(0, Ui.dp(ctx, 2), 0, 0);
+        txt.addView(sub);
+        card.addView(txt);
+
+        proactiveSwitch = new android.widget.Switch(ctx);
+        proactiveSwitch.setPadding(Ui.dp(ctx, 8), 0, 0, 0);
+        card.addView(proactiveSwitch);
+        col.addView(card);
     }
 
     private EditText field(android.content.Context ctx, LinearLayout parent, String label) {
@@ -178,7 +211,7 @@ public class CrushEditFragment extends Fragment {
     private void save() {
         String name = nameInput.getText().toString().trim();
         if (name.isEmpty()) {
-            Ui.toast(requireContext(), "请填写名字", FriendlyToast.Type.WARN);
+            Ui.toast(CrushEditFragment.this, "请填写名字", FriendlyToast.Type.WARN);
             return;
         }
         CrushPayload p = new CrushPayload();
@@ -191,53 +224,76 @@ public class CrushEditFragment extends Fragment {
         p.relationshipStatus = relation.getText().toString().trim();
         p.impression = impression.getText().toString().trim();
         p.voiceId = voice.getText().toString().trim();
+        p.proactiveEnabled = proactiveSwitch.isChecked();
 
         if (crush == null) {
             String slug = slugInput.getText().toString().trim();
             if (slug.isEmpty()) {
-                Ui.toast(requireContext(), "请填写 slug（唯一标识）", FriendlyToast.Type.WARN);
+                Ui.toast(CrushEditFragment.this, "请填写 slug（唯一标识）", FriendlyToast.Type.WARN);
                 return;
             }
             p.slug = slug;
             CrushApi.create(p, new Rest.Callback<Crush>() {
                 @Override
                 public void ok(Crush data) {
-                    Ui.toast(requireContext(), "创建成功", FriendlyToast.Type.SUCCESS);
-                    requireActivity().onBackPressed();
+                    if (!isAdded()) {
+                        return; // 已离开本页
+                    }
+                    Ui.toast(CrushEditFragment.this, "创建成功", FriendlyToast.Type.SUCCESS);
+                    // 对齐 Web 端流程：创建后引导去完善资料 / 导入材料 / 构建人格
+                    guideAfterCreate(data);
                 }
 
                 @Override
                 public void fail(String message) {
-                    Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                    if (isAdded()) {
+                        Ui.toast(CrushEditFragment.this, message, FriendlyToast.Type.ERROR, true);
+                    }
                 }
             });
         } else {
             CrushApi.update(crush.id, p, new Rest.Callback<Crush>() {
                 @Override
                 public void ok(Crush data) {
-                    Ui.toast(requireContext(), "已保存 ♥", FriendlyToast.Type.SUCCESS);
+                    if (!isAdded()) {
+                        return;
+                    }
+                    Ui.toast(CrushEditFragment.this, "已保存 ♥", FriendlyToast.Type.SUCCESS);
                     requireActivity().onBackPressed();
                 }
 
                 @Override
                 public void fail(String message) {
-                    Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                    if (isAdded()) {
+                        Ui.toast(CrushEditFragment.this, message, FriendlyToast.Type.ERROR, true);
+                    }
                 }
             });
         }
     }
 
+    /** 创建成功后引导：去详情页完善资料 / 导入材料 / 构建人格（对齐 Web 端「构建」流程） */
+    private void guideAfterCreate(Crush created) {
+        // 用户可能已离开本页（detached 后 requireContext/popBackStack 都会误伤）
+        if (created == null || !isAdded()) {
+            return;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+                .setTitle("💝 " + created.name + " 已就位")
+                .setMessage("接下来可以：\n· 导入 TA 的聊天记录等材料\n· 构建专属人格\n· 打开「允许 ta 主动找我」\n\n现在就去完善 TA 吗？")
+                .setPositiveButton("去完善 TA", (d, w) -> {
+                    // 先退回列表页再进详情，避免返回时又落到已提交的编辑页
+                    requireActivity().getSupportFragmentManager().popBackStackImmediate();
+                    Nav.push(requireActivity(), CrushDetailFragment.class, HomeFragment.crushArgs(created));
+                })
+                .setNegativeButton("稍后再说", (d, w) -> requireActivity().onBackPressed())
+                .setCancelable(false)
+                .show();
+    }
+
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        photoPicker = registerForActivityResult(
-                new ActivityResultContracts.PickVisualMedia(), uri -> {
-                    if (uri != null) handlePhoto(uri);
-                });
-        filePicker = registerForActivityResult(
-                new ActivityResultContracts.GetContent(), uri -> {
-                    if (uri != null) handleFile(uri);
-                });
         if (crush != null) {
             loadSources();
         }
@@ -251,10 +307,7 @@ public class CrushEditFragment extends Fragment {
         sourcesBox = new LinearLayout(ctx);
         sourcesBox.setOrientation(LinearLayout.VERTICAL);
         col.addView(sourcesBox);
-        addSourceRow(ctx);
-    }
 
-    private void addSourceRow(android.content.Context ctx) {
         TextView add = new TextView(ctx);
         add.setText("＋ 添加材料");
         add.setTextSize(13);
@@ -262,95 +315,13 @@ public class CrushEditFragment extends Fragment {
         add.setGravity(Gravity.CENTER);
         add.setBackground(Ui.rounded(0xFFFFF0F3, 12));
         add.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 9), Ui.dp(ctx, 12), Ui.dp(ctx, 9));
-        add.setOnClickListener(v -> addSourceDialog());
+        add.setOnClickListener(v -> importer.showDialog());
         Ui.pressScale(add);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = Ui.dp(ctx, 6);
+        add.setLayoutParams(lp);
         sourcesBox.addView(add);
-    }
-
-    private void addSourceDialog() {
-        android.content.Context ctx = requireContext();
-        Dialog d = new Dialog(ctx);
-        LinearLayout box = new LinearLayout(ctx);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(Ui.dp(ctx, 20), Ui.dp(ctx, 18), Ui.dp(ctx, 20), Ui.dp(ctx, 18));
-
-        TextView tip = new TextView(ctx);
-        tip.setText("粘贴一段 TA 说过的话或聊天记录；也可以点下方上传图片（视觉理解）或文本文件。");
-        tip.setTextSize(12);
-        tip.setTextColor(0xFFA5929C);
-        box.addView(tip);
-
-        EditText content = new EditText(ctx);
-        content.setHint("内容…");
-        content.setTextSize(14);
-        content.setMinLines(3);
-        content.setBackground(Ui.rounded(0xFFFBF6F7, 10));
-        content.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8));
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        clp.topMargin = Ui.dp(ctx, 8);
-        content.setLayoutParams(clp);
-        box.addView(content);
-
-        LinearLayout btns = new LinearLayout(ctx);
-        btns.setOrientation(LinearLayout.HORIZONTAL);
-        btns.setGravity(Gravity.END);
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        blp.topMargin = Ui.dp(ctx, 12);
-        btns.setLayoutParams(blp);
-
-        TextView photo = new TextView(ctx);
-        photo.setText("📷 图片");
-        photo.setTextSize(14);
-        photo.setTextColor(0xFF6B5E70);
-        photo.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 6), Ui.dp(ctx, 10), Ui.dp(ctx, 6));
-        photo.setOnClickListener(v -> {
-            d.dismiss();
-            pickPhoto();
-        });
-        btns.addView(photo);
-
-        TextView file = new TextView(ctx);
-        file.setText("📄 文件");
-        file.setTextSize(14);
-        file.setTextColor(0xFF6B5E70);
-        file.setPadding(Ui.dp(ctx, 10), Ui.dp(ctx, 6), Ui.dp(ctx, 10), Ui.dp(ctx, 6));
-        file.setOnClickListener(v -> {
-            d.dismiss();
-            pickFile();
-        });
-        btns.addView(file);
-
-        TextView cancel = new TextView(ctx);
-        cancel.setText("取消");
-        cancel.setTextSize(14);
-        cancel.setTextColor(0xFFA5929C);
-        cancel.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 6), Ui.dp(ctx, 12), Ui.dp(ctx, 6));
-        cancel.setOnClickListener(v -> d.dismiss());
-        btns.addView(cancel);
-
-        TextView ok = new TextView(ctx);
-        ok.setText("导入");
-        ok.setTextSize(14);
-        ok.setTextColor(0xFFFFFFFF);
-        ok.setBackground(Ui.rounded(0xFFFF5A7A, 10));
-        ok.setPadding(Ui.dp(ctx, 14), Ui.dp(ctx, 6), Ui.dp(ctx, 14), Ui.dp(ctx, 6));
-        ok.setOnClickListener(v -> {
-            String text = content.getText().toString().trim();
-            if (text.isEmpty()) {
-                Ui.toast(ctx, "内容不能为空", FriendlyToast.Type.WARN);
-                return;
-            }
-            d.dismiss();
-            importText(text);
-        });
-        btns.addView(ok);
-        box.addView(btns);
-
-        d.setContentView(box);
-        d.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        d.show();
     }
 
     private void loadSources() {
@@ -358,12 +329,13 @@ public class CrushEditFragment extends Fragment {
             @Override
             public void ok(List<Source> data) {
                 if (sourcesBox == null) return;
+                // 首行是「＋添加材料」按钮，只刷新其后的列表行
                 while (sourcesBox.getChildCount() > 1) {
                     sourcesBox.removeViewAt(1);
                 }
                 if (data != null) {
                     for (Source s : data) {
-                        sourcesBox.addView(sourceRow(s));
+                        sourcesBox.addView(importer.sourceRow(s));
                     }
                 }
             }
@@ -372,127 +344,5 @@ public class CrushEditFragment extends Fragment {
             public void fail(String message) {
             }
         });
-    }
-
-    private View sourceRow(final Source s) {
-        android.content.Context ctx = requireContext();
-        LinearLayout row = Ui.card(ctx, 14);
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        rp.topMargin = Ui.dp(ctx, 5);
-        row.setLayoutParams(rp);
-
-        LinearLayout top = new LinearLayout(ctx);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        row.addView(top);
-
-        TextView type = Ui.chip(ctx, s.type == null ? "TEXT" : s.type);
-        top.addView(type);
-        TextView name = new TextView(ctx);
-        name.setText(android.text.TextUtils.isEmpty(s.fileName) ? "文本材料" : s.fileName);
-        name.setTextSize(13);
-        name.setTextColor(0xFF4A4052);
-        name.setPadding(Ui.dp(ctx, 8), 0, 0, 0);
-        top.addView(name, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView del = new TextView(ctx);
-        del.setText("删除");
-        del.setTextSize(12);
-        del.setTextColor(0xFFFF4D6A);
-        del.setOnClickListener(v -> Ui.confirm(ctx, "删除", "删除这条材料？", "删除", () ->
-                CrushApi.deleteSource(crush.id, s.id, new Rest.Callback<Void>() {
-                    @Override
-                    public void ok(Void data) {
-                        Ui.toast(ctx, "已删除", FriendlyToast.Type.SUCCESS);
-                        loadSources();
-                    }
-
-                    @Override
-                    public void fail(String message) {
-                        Ui.toast(ctx, message, FriendlyToast.Type.ERROR);
-                    }
-                })));
-        top.addView(del);
-
-        if (!android.text.TextUtils.isEmpty(s.content)) {
-            TextView preview = new TextView(ctx);
-            String c = s.content.length() > 60 ? s.content.substring(0, 60) + "…" : s.content;
-            preview.setText(c);
-            preview.setTextSize(12);
-            preview.setTextColor(0xFFA5929C);
-            preview.setMaxLines(2);
-            preview.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.addView(preview);
-        }
-        return row;
-    }
-
-    private void importText(String text) {
-        CrushApi.addSource(crush.id, text, "TEXT", null, new Rest.Callback<Source>() {
-            @Override
-            public void ok(Source data) {
-                Ui.toast(requireContext(), "材料已添加 ♥", FriendlyToast.Type.SUCCESS);
-                loadSources();
-            }
-
-            @Override
-            public void fail(String message) {
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
-            }
-        });
-    }
-
-    private void upload(byte[] bytes, String name, String mime) {
-        CrushApi.uploadSource(crush.id, bytes, name, mime, new Rest.Callback<Source>() {
-            @Override
-            public void ok(Source data) {
-                Ui.toast(requireContext(), "已导入并理解 ♥", FriendlyToast.Type.SUCCESS);
-                loadSources();
-            }
-
-            @Override
-            public void fail(String message) {
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
-            }
-        });
-    }
-
-    private void pickPhoto() {
-        photoPicker.launch(new PickVisualMediaRequest.Builder().build());
-    }
-
-    private void pickFile() {
-        filePicker.launch("*/*");
-    }
-
-    private void handlePhoto(Uri uri) {
-        readUri(uri, true);
-    }
-
-    private void handleFile(Uri uri) {
-        readUri(uri, false);
-    }
-
-    private void readUri(Uri uri, boolean image) {
-        try {
-            InputStream is = requireContext().getContentResolver().openInputStream(uri);
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = is.read(buf)) > 0) {
-                bos.write(buf, 0, n);
-            }
-            is.close();
-            String mime = requireContext().getContentResolver().getType(uri);
-            if (mime == null) mime = image ? "image/jpeg" : "application/octet-stream";
-            String name = image ? System.currentTimeMillis() + ".jpg" : "";
-            upload(bos.toByteArray(), name, mime);
-        } catch (Exception e) {
-            Ui.toast(requireContext(),
-                    image ? "读取图片失败，请换一张重试" : "读取文件失败，请重试",
-                    FriendlyToast.Type.ERROR);
-        }
     }
 }

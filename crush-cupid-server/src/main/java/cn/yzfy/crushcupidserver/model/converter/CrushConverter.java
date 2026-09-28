@@ -47,6 +47,7 @@ public final class CrushConverter {
         if (dto.getRelationshipStatus() != null) entity.setRelationshipStatus(dto.getRelationshipStatus());
         if (dto.getImpression() != null) entity.setImpression(dto.getImpression());
         if (dto.getVoiceId() != null) entity.setVoiceId(dto.getVoiceId());
+        if (dto.getProactiveEnabled() != null) entity.setProactiveEnabled(dto.getProactiveEnabled());
         entity.setUpdatedAt(new Date());
     }
 }

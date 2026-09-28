@@ -4,6 +4,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  # 文件上传（头像/素材图片）大小上限：单文件 10MB，整个请求 12MB
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
   datasource:
     url: jdbc:postgresql://localhost:5432/crushCupid?stringtype=unspecified
     username: postgres
@@ -106,6 +111,18 @@ crush:
     dir: D:/uploads
     # 对外访问 URL 前缀（与 WebMvcConfig 静态映射对齐）
     url-prefix: /api/uploads
+  # 第三方对象存储（阿里云 OSS）：启用后上传的图片（头像/对话图片）落到 OSS 并返回公网 URL；
+  # 未启用 / 配置不完整 / 上传失败时自动回退本地磁盘（crush.upload.dir），不打断业务流程。
+  # 凭证务必从环境变量注入，不要提交真实值到仓库。Bucket 需公共读或配合自定义域名。
+  oss:
+    enabled: ${OSS_ENABLED:false}
+    # 地域节点，如 oss-cn-hangzhou.aliyuncs.com
+    endpoint: ${OSS_ENDPOINT:}
+    bucket: ${OSS_BUCKET:}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    # 自定义域名/CDN（可选）：留空则自动拼 https://{bucket}.{endpoint}
+    public-url: ${OSS_PUBLIC_URL:}
   # 主动消息调度（crush 不依赖用户输入主动发消息）
   proactive:
     enabled: true

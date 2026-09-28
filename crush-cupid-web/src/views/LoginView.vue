@@ -33,6 +33,15 @@
           >
             {{ t('login.tabRegister') }}
           </button>
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="activeKey === 'reset'"
+            :class="{ active: activeKey === 'reset' }"
+            @click="activeKey = 'reset'"
+          >
+            重置密码
+          </button>
         </div>
 
         <!-- 登录：邮箱 + 密码 + 可刷新图形验证码 -->
@@ -150,6 +159,57 @@
             {{ loading ? '……' : t('login.registerBtn') }}
           </button>
         </form>
+
+        <!-- 重置密码：邮箱验证码（与安卓端忘记密码对齐） -->
+        <form v-show="activeKey === 'reset'" class="letter-form" @submit.prevent="handleReset">
+          <label class="field">
+            <span class="field-label">{{ t('login.email') }}</span>
+            <div class="code-send-row">
+              <input
+                v-model.trim="resetForm.email"
+                type="email"
+                autocomplete="email"
+                class="code-send-input"
+                :placeholder="t('login.emailPlaceholder')"
+              />
+              <button
+                type="button"
+                class="code-send-btn"
+                :disabled="!resetForm.email || sendingResetCode || resetCountdown > 0"
+                @click="sendResetCode"
+              >
+                {{ resetCountdown > 0 ? `${resetCountdown}s` : (sendingResetCode ? t('login.sending') : t('login.sendCode')) }}
+              </button>
+            </div>
+          </label>
+
+          <label class="field">
+            <span class="field-label">{{ t('login.code') }}</span>
+            <input
+              v-model.trim="resetForm.code"
+              class="captcha-input"
+              maxlength="8"
+              autocomplete="off"
+              :placeholder="t('login.codePlaceholder')"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">{{ t('login.password') }}</span>
+            <input
+              v-model="resetForm.newPassword"
+              type="password"
+              autocomplete="new-password"
+              :placeholder="'设置新密码'"
+            />
+          </label>
+
+          <p v-if="errorMsg" class="form-error" role="alert">{{ errorMsg }}</p>
+
+          <button type="submit" class="seal-btn" :disabled="loading">
+            {{ loading ? '……' : '重置密码' }}
+          </button>
+        </form>
       </div>
 
       <!-- 火漆印章：唯一被记住的装饰 -->
@@ -167,7 +227,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { useI18n } from 'vue-i18n'
-import { login, register, sendEmailCode, getCaptcha } from '@/api'
+import { login, register, sendEmailCode, getCaptcha, resetPassword } from '@/api'
 import type { CaptchaVO } from '@/types'
 
 const { t } = useI18n()
@@ -188,6 +248,66 @@ let regCountdownTimer: ReturnType<typeof setInterval> | null = null
 
 const loginForm = reactive({ email: '', password: '', captchaId: '', captcha: '' })
 const registerForm = reactive({ username: '', email: '', password: '', code: '' })
+const resetForm = reactive({ email: '', code: '', newPassword: '' })
+
+const sendingResetCode = ref(false)
+const resetCountdown = ref(0)
+let resetCountdownTimer: ReturnType<typeof setInterval> | null = null
+
+/** 发送重置密码验证码（与安卓端 RESET_PWD 对齐） */
+async function sendResetCode() {
+  if (!resetForm.email) {
+    message.warning(t('login.needEmail'))
+    return
+  }
+  sendingResetCode.value = true
+  try {
+    await sendEmailCode(resetForm.email, 'RESET_PWD')
+    message.success(t('login.codeSent'))
+    resetCountdown.value = 60
+    if (resetCountdownTimer) clearInterval(resetCountdownTimer)
+    resetCountdownTimer = setInterval(() => {
+      resetCountdown.value--
+      if (resetCountdown.value <= 0 && resetCountdownTimer) {
+        clearInterval(resetCountdownTimer)
+        resetCountdownTimer = null
+        sendingResetCode.value = false
+      }
+    }, 1000)
+  } catch (e: any) {
+    message.error(e?.message || t('login.sendFailed'))
+  } finally {
+    sendingResetCode.value = false
+  }
+}
+
+/** 邮箱验证码重置密码 */
+async function handleReset() {
+  if (!resetForm.email || !resetForm.code || !resetForm.newPassword) {
+    message.warning('请填写邮箱、验证码与新密码')
+    return
+  }
+  if (resetForm.newPassword.length < 6) {
+    message.warning('新密码至少 6 位')
+    return
+  }
+  loading.value = true
+  errorMsg.value = ''
+  try {
+    await resetPassword({
+      email: resetForm.email,
+      code: resetForm.code,
+      newPassword: resetForm.newPassword,
+    })
+    message.success('密码已重置，用新密码登录吧')
+    activeKey.value = 'login'
+    loginForm.email = resetForm.email
+  } catch (e: any) {
+    errorMsg.value = e?.message || '重置失败'
+  } finally {
+    loading.value = false
+  }
+}
 
 function starStyle(i: number): Record<string, string> {
   return {

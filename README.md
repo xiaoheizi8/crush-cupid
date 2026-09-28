@@ -33,6 +33,7 @@
 | 多条消息 | LLM 用 `\|\|\|` 分隔连发短消息，像真人微信一样「在吗？」「哈哈哈」「你猜」 |
 | 表情包 | LLM 按情绪/性格/情境自主决定何时发表情包，后端 prompt 标记 `[[sticker:情绪]]` 方案（绕开 Spring AI 流式 tool call 不稳定），从 ChineseBQB 素材库随机抽取，经 jsdelivr CDN 加速，独立气泡渲染 |
 | 图片上传持久化 | 对话中上传图片自动落盘（`chat_media` 表独立存储 URL），刷新/重启后历史回显不丢失 |
+| 头像上传 | 用户中心点击头像换图，经第三方对象存储（阿里云 OSS）持久化，未配置时自动回退本地磁盘；Web / 安卓两端一致 |
 | 主动消息 | crush 不依赖用户输入主动连发（「等 ta 主动找我」按钮），可带场景暗示；SSE 心跳保活 |
 | 语音合成 | CosyVoice v2 模型（WebSocket 直联合成），全手动点击播放，支持声音设计生成专属声线 |
 | Persona 建模 | 5 层人格模型（硬规则 → 身份 → 说话风格 → 情感模式 → 关系行为） |
@@ -142,6 +143,15 @@ crush:
   upload:
     dir: D:/uploads                     # 绝对路径，与 WebMvcConfig 静态映射对齐；需确保目录存在（启动时自动创建）
     url-prefix: /api/uploads           # 对外访问 URL 前缀
+  # 第三方对象存储（阿里云 OSS）——可选。启用后图片（头像 / 对话图片）上传到 OSS 并返回公网 URL；
+  # 未启用 / 配置不完整 / 上传失败时自动回退上面的本地磁盘目录，不打断业务流程。
+  oss:
+    enabled: ${OSS_ENABLED:false}
+    endpoint: ${OSS_ENDPOINT:}          # 如 oss-cn-hangzhou.aliyuncs.com
+    bucket: ${OSS_BUCKET:}              # Bucket 需公共读，或配合自定义域名
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    public-url: ${OSS_PUBLIC_URL:}      # 自定义域名 / CDN（可选），留空自动拼 https://{bucket}.{endpoint}
   # 主动消息调度
   proactive:
     enabled: true
@@ -190,6 +200,8 @@ crush:
 | DELETE | `/api/crush/{id}` | 删除暗恋对象 |
 | GET | `/api/skill/catalog` | 远端 Skill 元信息 + 可用 prompts |
 | GET | `/api/skill/prompt/{name}` | 拉取指定 prompt 模板 |
+| POST | `/api/upload/image` | 通用图片上传（multipart `file`）→ `{url}`，第三方 OSS 优先、回退本地 |
+| POST | `/api/user/avatar` | 上传头像（multipart `file`）→ 存储并回写 `avatarUrl`，返回最新资料 |
 
 **对话请求示例**：
 

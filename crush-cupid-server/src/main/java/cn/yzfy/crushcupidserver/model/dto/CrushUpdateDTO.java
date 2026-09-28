@@ -26,4 +26,7 @@ public class CrushUpdateDTO {
 
     /** CosyVoice 专属音色 voice_id（由声音设计接口产生） */
     private String voiceId;
+
+    /** 是否允许 ta 主动发消息（null = 不修改） */
+    private Boolean proactiveEnabled;
 }

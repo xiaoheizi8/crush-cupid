@@ -1,5 +1,6 @@
 package cn.yzfy.crushApp.ui;
 
+import android.animation.ObjectAnimator;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -16,6 +17,8 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import io.noties.markwon.Markwon;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +26,7 @@ import cn.yzfy.crushApp.R;
 import cn.yzfy.crushApp.api.ChatApi;
 import cn.yzfy.crushApp.api.CrushApi;
 import cn.yzfy.crushApp.api.GsonFactory;
+import cn.yzfy.crushApp.api.ImageLoader;
 import cn.yzfy.crushApp.api.Rest;
 import cn.yzfy.crushApp.api.SkillApi;
 import cn.yzfy.crushApp.api.Sse;
@@ -30,10 +34,34 @@ import cn.yzfy.crushApp.model.AdvisorCommand;
 import cn.yzfy.crushApp.model.Crush;
 import cn.yzfy.crushApp.model.MultiChunk;
 
-/** 军师页：子命令卡片 + 自由对话（独立记忆） */
+/**
+ * 军师页：子命令卡片 + 自由对话（独立记忆，流式渲染）
+ */
 public class AdvisorFragment extends Fragment {
 
-    private final List<String> log = new ArrayList<>();
+    /**
+     * 一条气泡消息；按对象字段区分归属，不再靠「我的问题：」前缀猜
+     */
+    private static class Msg {
+        final boolean mine;
+        String text;
+        boolean pending;
+        /**
+         * REST 调用中的「军师思考中」占位态（呼吸动画 + 失败时移除）
+         */
+        boolean thinking;
+        /**
+         * 表情包图片地址（sticker chunk 的 URL），与 ChatFragment 的 STICKER 气泡对齐
+         */
+        String imageUrl;
+
+        Msg(boolean mine, String text) {
+            this.mine = mine;
+            this.text = text;
+        }
+    }
+
+    private final List<Msg> msgs = new ArrayList<>();
     private Crush crush;
     private TextView crushChip;
     private List<Crush> crushes = new ArrayList<>();
@@ -42,6 +70,11 @@ public class AdvisorFragment extends Fragment {
     private LinearLayoutManager layoutManager;
     private EditText input;
     private boolean streaming;
+    private Sse.Handle advisorHandle;
+    /**
+     * Markdown 渲染器：军师报告类输出按 markdown 展示，Fragment 内复用一个实例
+     */
+    private Markwon markwon;
 
     @Nullable
     @Override
@@ -49,6 +82,7 @@ public class AdvisorFragment extends Fragment {
                              @Nullable Bundle savedInstanceState) {
         android.content.Context ctx = requireContext();
         crush = HomeFragment.crushFrom(getArguments());
+        markwon = Markwon.create(ctx);
 
         LinearLayout root = new LinearLayout(ctx);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -162,17 +196,23 @@ public class AdvisorFragment extends Fragment {
         SkillApi.advisorCommands(new Rest.Callback<List<AdvisorCommand>>() {
             @Override
             public void ok(List<AdvisorCommand> data) {
+                if (!isAdded()) {
+                    return; // 已离开本页
+                }
                 cmdRow.removeAllViews();
                 if (data == null) {
                     return;
                 }
+                int shown = 0;
                 for (final AdvisorCommand c : data) {
                     TextView chip = new TextView(requireContext());
-                    chip.setText(c.title);
+                    chip.setText((c.icon == null || c.icon.isEmpty() ? "▫️ " : c.icon + " ") + c.title);
                     chip.setTextSize(14);
-                    chip.setTextColor(0xFF7256FF);
+                    // 分组着色：军师=紫 / 照镜子=琥珀金 / 模拟器=粉
+                    int[] theme = chipTheme(c.group);
+                    chip.setTextColor(theme[1]);
                     chip.setGravity(Gravity.CENTER);
-                    chip.setBackground(Ui.rounded(0xFFEFEBFF, 999));
+                    chip.setBackground(Ui.rounded(theme[0], 999));
                     chip.setPadding(Ui.dp(requireContext(), 14), Ui.dp(requireContext(), 8),
                             Ui.dp(requireContext(), 14), Ui.dp(requireContext(), 8));
                     LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -182,14 +222,38 @@ public class AdvisorFragment extends Fragment {
                     chip.setOnClickListener(v -> invoke(c));
                     Ui.pressScale(chip);
                     cmdRow.addView(chip);
+                    // 逐个入场：淡入 + 右侧滑入，间隔 40ms
+                    chip.setAlpha(0f);
+                    chip.setTranslationX(Ui.dp(requireContext(), 18));
+                    chip.animate().alpha(1f).translationX(0f)
+                            .setStartDelay(60L * shown)
+                            .setDuration(260L)
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                            .start();
+                    shown++;
                 }
             }
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "加载军师功能失败：" + message, FriendlyToast.Type.ERROR, true);
+                if (isAdded()) {
+                    Ui.toast(AdvisorFragment.this, "加载军师功能失败：" + message, FriendlyToast.Type.ERROR, true);
+                }
             }
         });
+    }
+
+    /**
+     * 分组配色：{背景色, 文字色}；未知分组回落军师紫
+     */
+    private int[] chipTheme(String group) {
+        if ("MIRROR".equals(group)) {
+            return new int[]{0xFFFFF3D6, 0xFFA9761B};
+        }
+        if ("SIMULATOR".equals(group)) {
+            return new int[]{0xFFFFE9EE, 0xFFE8466B};
+        }
+        return new int[]{0xFFEFEBFF, 0xFF7256FF};
     }
 
     private String crushText() {
@@ -206,9 +270,12 @@ public class AdvisorFragment extends Fragment {
         CrushApi.list(new Rest.Callback<List<Crush>>() {
             @Override
             public void ok(List<Crush> data) {
+                if (!isAdded()) {
+                    return; // 已离开页面，丢弃回调
+                }
                 crushes = data == null ? new ArrayList<>() : data;
                 if (crushes.isEmpty()) {
-                    Ui.toast(requireContext(), "还没有暗恋对象，先去新建一个吧", FriendlyToast.Type.WARN);
+                    Ui.toast(AdvisorFragment.this, "还没有暗恋对象，先去新建一个吧", FriendlyToast.Type.WARN);
                     return;
                 }
                 String[] names = new String[crushes.size()];
@@ -229,7 +296,7 @@ public class AdvisorFragment extends Fragment {
                             }
                             crush = crushes.get(i);
                             refreshCrushChip();
-                            Ui.toast(requireContext(), "已切换对象：" + crush.name, FriendlyToast.Type.SUCCESS);
+                            Ui.toast(AdvisorFragment.this, "已切换对象：" + crush.name, FriendlyToast.Type.SUCCESS);
                             if (afterPick != null) {
                                 afterPick.run();
                             }
@@ -240,37 +307,130 @@ public class AdvisorFragment extends Fragment {
 
             @Override
             public void fail(String message) {
-                Ui.toast(requireContext(), "加载对象失败：" + message, FriendlyToast.Type.ERROR);
+                if (isAdded()) {
+                    Ui.toast(AdvisorFragment.this, "加载对象失败：" + message, FriendlyToast.Type.ERROR);
+                }
             }
         });
     }
 
     private void invoke(AdvisorCommand c) {
         if (streaming) {
-            Ui.toast(requireContext(), "军师正在回复中…", FriendlyToast.Type.INFO);
+            Ui.toast(AdvisorFragment.this, "军师正在回复中…", FriendlyToast.Type.INFO);
             return;
         }
         if (c.requiresCrush && crush == null) {
-            Ui.toast(requireContext(), "该功能需要先选择暗恋对象", FriendlyToast.Type.INFO);
-            pickCrush(() -> invokeDirect(c));
+            Ui.toast(AdvisorFragment.this, "该功能需要先选择暗恋对象", FriendlyToast.Type.INFO);
+            pickCrush(() -> startInvoke(c, null));
             return;
         }
-        invokeDirect(c);
+        startInvoke(c, null);
     }
 
-    private void invokeDirect(AdvisorCommand c) {
+    /**
+     * 命令调度：需要材料的命令先弹输入框（选完对象后再进来也走这里）
+     */
+    private void startInvoke(AdvisorCommand c, String input) {
+        if (c.needsInput && input == null) {
+            showInput(c);
+            return;
+        }
+        invokeDirect(c, input == null ? "" : input);
+    }
+
+    /**
+     * 需要用户粘贴材料（聊天记录/草稿/场景描述）的命令，弹出输入对话框
+     */
+    private void showInput(final AdvisorCommand c) {
+        android.content.Context ctx = requireContext();
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(Ui.dp(ctx, 22), Ui.dp(ctx, 6), Ui.dp(ctx, 22), 0);
+
+        TextView hint = new TextView(ctx);
+        hint.setText(c.description);
+        hint.setTextSize(13);
+        hint.setTextColor(0xFF8A7A8F);
+        hint.setLineSpacing(Ui.dp(ctx, 2), 1f);
+        box.addView(hint);
+
+        final EditText et = new EditText(ctx);
+        et.setHint(c.inputHint == null ? "输入内容…" : c.inputHint);
+        et.setTextSize(14);
+        et.setTextColor(0xFF2A2233);
+        et.setMinLines(3);
+        et.setMaxLines(8);
+        et.setGravity(Gravity.TOP);
+        et.setBackground(Ui.rounded(0xFFF6F3FF, 14));
+        et.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 10), Ui.dp(ctx, 12), Ui.dp(ctx, 10));
+        LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        elp.topMargin = Ui.dp(ctx, 10);
+        et.setLayoutParams(elp);
+        box.addView(et);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                .setTitle((c.icon == null ? "" : c.icon + " ") + c.title)
+                .setView(box)
+                .setPositiveButton("交给军师", (d, w) -> {
+                    String text = et.getText().toString().trim();
+                    if (text.isEmpty()) {
+                        Ui.toast(AdvisorFragment.this, "先写点材料，军师才好出手", FriendlyToast.Type.WARN);
+                        return;
+                    }
+                    invokeDirect(c, text);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
+
+    private void invokeDirect(AdvisorCommand c, String question) {
+        streaming = true;
         String slug = crush == null ? null : crush.slug;
-        Ui.toast(requireContext(), "军师正在处理「" + c.title + "」…", FriendlyToast.Type.INFO);
-        SkillApi.invoke(c.name, "", crush == null || !c.requiresCrush ? null : slug,
+        // 占位「思考中」气泡：呼吸动画，失败时移除，成功时原地替换为结果
+        final int idx = msgs.size();
+        Msg placeholder = new Msg(false, "");
+        placeholder.pending = true;
+        placeholder.thinking = true;
+        addMsg(placeholder);
+        SkillApi.invoke(c.name, question, crush == null || !c.requiresCrush ? null : slug,
                 new Rest.Callback<String>() {
                     @Override
                     public void ok(String data) {
-                        append(data == null ? "" : data);
+                        streaming = false;
+                        if (idx >= msgs.size()) {
+                            return;
+                        }
+                        Msg m = msgs.get(idx);
+                        m.pending = false;
+                        m.thinking = false;
+                        String body = data == null ? "" : data.trim();
+                        m.text = body.isEmpty() ? "（军师没有返回内容，稍后再试试）" : body;
+                        adapter.notifyItemChanged(idx);
+                        scrollBottom();
+                        // 结果就位轻触反馈
+                        list.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                        Ui.post(() -> {
+                            if (layoutManager != null) {
+                                View v = layoutManager.findViewByPosition(idx);
+                                if (v != null) {
+                                    Ui.enter(v, R.anim.item_fade_slide);
+                                }
+                            }
+                        });
                     }
 
                     @Override
                     public void fail(String message) {
-                        Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR, true);
+                        streaming = false;
+                        if (idx < msgs.size() && msgs.get(idx).thinking) {
+                            msgs.remove(idx);
+                            adapter.notifyItemRemoved(idx);
+                        }
+                        // 用户可能已离开本页：detached 后 requireContext() 会崩
+                        if (isAdded()) {
+                            Ui.toast(AdvisorFragment.this, message, FriendlyToast.Type.ERROR, true);
+                        }
                     }
                 });
     }
@@ -280,7 +440,7 @@ public class AdvisorFragment extends Fragment {
             return;
         }
         if (crush == null) {
-            Ui.toast(requireContext(), "为获得更懂 TA 的答复，请先选择暗恋对象", FriendlyToast.Type.INFO);
+            Ui.toast(AdvisorFragment.this, "为获得更懂 TA 的答复，请先选择暗恋对象", FriendlyToast.Type.INFO);
             pickCrush(() -> askDirect(text));
             return;
         }
@@ -289,47 +449,98 @@ public class AdvisorFragment extends Fragment {
 
     private void askDirect(String text) {
         input.setText("");
-        append("我的问题：" + text);
+        addMsg(new Msg(true, text));
         streaming = true;
         String slug = crush == null ? null : crush.slug;
-        final StringBuilder sb = new StringBuilder();
-        ChatApi.streamAdvisor(slug, text, null, new Sse.Listener() {
+        closeAdvisor();
+        // 先放一条空回复占位，后续 chunk 原地更新 → 打字机效果
+        final int replyIdx = msgs.size();
+        Msg reply = new Msg(false, "");
+        reply.pending = true;
+        addMsg(reply);
+        advisorHandle = ChatApi.streamAdvisor(slug, text, null, new Sse.Listener() {
             @Override
             public void onEvent(String data) {
                 try {
                     MultiChunk c = GsonFactory.GSON.fromJson(data, MultiChunk.class);
+                    Msg m = msgs.get(replyIdx);
                     if ("sticker".equals(c.type)) {
-                        sb.append("[表情包]");
-                    } else {
-                        sb.append(c.content);
+                        // URL 表情包按图片渲染；情绪词等非 URL 内容降级为文本标记
+                        String url = c.content == null ? "" : c.content.trim();
+                        if (url.startsWith("http") || url.startsWith("/api/")) {
+                            m.imageUrl = url;
+                        } else {
+                            m.text += "（表情包）";
+                        }
+                    } else if (c.content != null) {
+                        m.text += c.content;
                     }
+                    adapter.notifyItemChanged(replyIdx);
+                    scrollBottom();
                 } catch (Exception ignored) {
                 }
             }
 
             @Override
             public void onClosed() {
-                streaming = false;
-                flush(sb);
+                finishReply(replyIdx, null);
             }
 
             @Override
             public void onError(String message) {
-                streaming = false;
-                flush(sb);
-                Ui.toast(requireContext(), message, FriendlyToast.Type.ERROR);
+                finishReply(replyIdx, message);
+                if (isAdded()) {
+                    Ui.toast(AdvisorFragment.this, message, FriendlyToast.Type.ERROR);
+                }
             }
         });
     }
 
-    private void append(String line) {
-        log.add(line);
-        adapter.notifyItemInserted(log.size() - 1);
+    /**
+     * 流结束：去掉光标；空回复/中断给兜底文案
+     */
+    private void finishReply(int idx, String error) {
+        streaming = false;
+        if (idx >= msgs.size()) {
+            return;
+        }
+        Msg m = msgs.get(idx);
+        m.pending = false;
+        boolean hasImage = m.imageUrl != null && !m.imageUrl.isEmpty();
+        if (m.text.trim().isEmpty() && !hasImage) {
+            // 文本与表情包都为空才算空回复
+            m.text = error == null ? "（军师没有返回内容，稍后再试试）" : "（出错了：" + error + "）";
+        } else if (error != null) {
+            m.text += "\n（连接中断：" + error + "）";
+        }
+        adapter.notifyItemChanged(idx);
+        scrollBottom();
+    }
+
+    /**
+     * 关闭当前军师流（SSE 句柄防覆盖泄漏），同 ChatFragment.closeStream
+     */
+    private void closeAdvisor() {
+        if (advisorHandle != null) {
+            advisorHandle.close();
+            advisorHandle = null;
+        }
+    }
+
+    @Override
+    public void onDestroyView() {
+        closeAdvisor();
+        super.onDestroyView();
+    }
+
+    private void addMsg(Msg m) {
+        msgs.add(m);
+        adapter.notifyItemInserted(msgs.size() - 1);
         scrollBottom();
         // 新气泡入场微动画：布局完成后查询新 view 再播放
         Ui.post(() -> {
-            if (layoutManager != null && log.size() > 0) {
-                View v = layoutManager.findViewByPosition(log.size() - 1);
+            if (layoutManager != null && msgs.size() > 0) {
+                View v = layoutManager.findViewByPosition(msgs.size() - 1);
                 if (v != null) {
                     Ui.enter(v, R.anim.item_fade_slide);
                 }
@@ -337,59 +548,146 @@ public class AdvisorFragment extends Fragment {
         });
     }
 
-    private void flush(StringBuilder sb) {
-        if (sb.length() > 0) {
-            append(sb.toString());
-            sb.setLength(0);
-        }
-    }
-
     private void scrollBottom() {
-        if (layoutManager != null && log.size() > 0) {
-            layoutManager.scrollToPosition(log.size() - 1);
+        if (layoutManager != null && msgs.size() > 0) {
+            layoutManager.scrollToPosition(msgs.size() - 1);
         }
     }
 
     private class AdvisorMsgAdapter extends RecyclerView.Adapter<AdvisorMsgAdapter.Holder> {
         class Holder extends RecyclerView.ViewHolder {
+            final LinearLayout box;
             final TextView tv;
+            final android.widget.ImageView img;
+            ObjectAnimator breathe;
 
             Holder(View v) {
                 super(v);
-                tv = (TextView) v;
+                box = (LinearLayout) v;
+                tv = (TextView) box.getChildAt(0);
+                img = (android.widget.ImageView) box.getChildAt(1);
+            }
+
+            /**
+             * 「军师思考中」呼吸动画
+             */
+            void startBreathe() {
+                stopBreathe();
+                breathe = ObjectAnimator.ofFloat(box, View.ALPHA, 1f, 0.4f);
+                breathe.setDuration(700);
+                breathe.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+                breathe.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+                breathe.start();
+            }
+
+            void stopBreathe() {
+                if (breathe != null) {
+                    breathe.cancel();
+                    breathe = null;
+                }
+                box.setAlpha(1f);
             }
         }
 
         @NonNull
         @Override
         public Holder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            TextView tv = new TextView(parent.getContext());
-            tv.setTextSize(15);
-            tv.setPadding(Ui.dp(parent.getContext(), 12), Ui.dp(parent.getContext(), 9),
-                    Ui.dp(parent.getContext(), 12), Ui.dp(parent.getContext(), 9));
-            tv.setMaxWidth(Ui.dp(parent.getContext(), 270));
-            tv.setLineSpacing(Ui.dp(parent.getContext(), 3), 1f);
+            android.content.Context ctx = parent.getContext();
+            // 气泡容器：支持「文本 / 表情包图片 / 图文」三种内容
+            LinearLayout box = new LinearLayout(ctx);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(Ui.dp(ctx, 12), Ui.dp(ctx, 9), Ui.dp(ctx, 12), Ui.dp(ctx, 9));
             RecyclerView.LayoutParams lp = new RecyclerView.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = Ui.dp(parent.getContext(), 6);
-            tv.setLayoutParams(lp);
-            return new Holder(tv);
+            lp.topMargin = Ui.dp(ctx, 6);
+            box.setLayoutParams(lp);
+
+            TextView tv = new TextView(ctx);
+            tv.setTextSize(15);
+            tv.setLineSpacing(Ui.dp(ctx, 3), 1f);
+            tv.setMaxWidth(Ui.dp(ctx, 270));
+            box.addView(tv);
+
+            android.widget.ImageView img = new android.widget.ImageView(ctx);
+            img.setVisibility(View.GONE);
+            img.setAdjustViewBounds(true);
+            img.setMaxWidth(Ui.dp(ctx, 200));
+            img.setMaxHeight(Ui.dp(ctx, 200));
+            img.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            box.addView(img);
+            return new Holder(box);
         }
 
         @Override
         public void onBindViewHolder(@NonNull Holder h, int position) {
-            String line = log.get(position);
-            boolean mine = line.startsWith("我的问题：");
-            h.tv.setText(line);
-            h.tv.setGravity(mine ? Gravity.END : Gravity.START);
-            h.tv.setBackgroundResource(mine ? R.drawable.bg_bubble_user : R.drawable.bg_bubble_assistant);
-            h.tv.setTextColor(mine ? 0xFFFFFFFF : 0xFF332A35);
-            h.tv.setMaxWidth(Ui.dp(h.itemView.getContext(), mine ? 210 : 270));
+            Msg m = msgs.get(position);
+            h.stopBreathe();
+            boolean sticker = !m.mine && m.imageUrl != null && !m.imageUrl.isEmpty();
+            boolean hasText = m.text != null && !m.text.trim().isEmpty();
+
+            h.box.setGravity(m.mine ? Gravity.END : Gravity.START);
+            h.box.setBackgroundResource(m.mine ? R.drawable.bg_bubble_user : R.drawable.bg_bubble_assistant);
+
+            if (m.thinking) {
+                h.img.setVisibility(View.GONE);
+                h.tv.setVisibility(View.VISIBLE);
+                h.tv.setText("🤵 军师思考中…");
+                h.startBreathe();
+            } else {
+                if (sticker) {
+                    h.img.setVisibility(View.VISIBLE);
+                    h.img.setOnClickListener(v -> previewSticker(m.imageUrl));
+                    ImageLoader.load(h.img, m.imageUrl);
+                } else {
+                    h.img.setVisibility(View.GONE);
+                }
+                // 只发图不带文时隐藏文本行
+                h.tv.setVisibility(hasText ? View.VISIBLE : View.GONE);
+                if (hasText) {
+                    if (m.pending) {
+                        // SSE 流式中的打字机光标
+                        h.tv.setText(m.text.isEmpty() ? "…" : m.text + "▍");
+                    } else if (!m.mine && markwon != null) {
+                        // 军师输出常为 markdown（报告/分点策略），按 markdown 渲染
+                        markwon.setMarkdown(h.tv, m.text);
+                    } else {
+                        h.tv.setText(m.text);
+                    }
+                }
+            }
+            h.tv.setTextColor(m.mine ? 0xFFFFFFFF : 0xFF332A35);
+            h.tv.setMaxWidth(Ui.dp(h.itemView.getContext(), m.mine ? 210 : 270));
+        }
+
+        @Override
+        public void onViewRecycled(@NonNull Holder holder) {
+            super.onViewRecycled(holder);
+            holder.stopBreathe();
         }
 
         @Override
         public int getItemCount() {
-            return log.size();
+            return msgs.size();
         }
+    }
+
+    /**
+     * 表情包点击放大预览（与聊天页图片预览交互一致）
+     */
+    private void previewSticker(String url) {
+        if (url == null || url.isEmpty() || !isAdded()) {
+            return;
+        }
+        android.app.Dialog d = new android.app.Dialog(requireContext());
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        android.widget.ImageView img = new android.widget.ImageView(requireContext());
+        img.setBackgroundColor(0xEE000000);
+        img.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        img.setOnClickListener(v -> d.dismiss());
+        d.setContentView(img, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        d.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        d.show();
+        ImageLoader.load(img, url);
     }
 }

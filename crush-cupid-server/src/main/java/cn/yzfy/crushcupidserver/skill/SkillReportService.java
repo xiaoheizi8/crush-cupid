@@ -127,15 +127,6 @@ public class SkillReportService {
         }
     }
 
-    /** 按 slug 取暗恋对象（不存在抛 404），供 Controller 复用 */
-    public Crush lookupCrush(String crushSlug) {
-        Crush crush = crushService.getBySlug(crushSlug);
-        if (crush == null) {
-            throw BizException.notFound("未找到暗恋对象：" + crushSlug);
-        }
-        return crush;
-    }
-
     private String loadReportTemplate() {
         try {
             String t = skillCatalogService.getPrompt("advisor_report");
