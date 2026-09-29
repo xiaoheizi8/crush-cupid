@@ -7,7 +7,7 @@
       "name": "AliyunBailianMCP_mcp-NDU4NThjYzM3Nzdk",
       "baseUrl": "https://dashscope.aliyuncs.com/api/v1/mcps/mcp-NDU4NThjYzM3Nzdk/mcp",
       "headers": {
-        "Authorization": "Bearer sk-27dc9862d8cc4e56b9b0a192fb4180dd"
+        "Authorization": "Bearer "
       }
     }
   }
